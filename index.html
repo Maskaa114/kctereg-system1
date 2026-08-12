@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="so">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KCTE Online Grade System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase Libraries -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // KAN WAAYE CONFIG-GAADII AAD HAYSAY - WAA SAX:
+        const firebaseConfig = {
+          apiKey: "AIzaSyDoMZETvL5-oYm5wiP2dcbLm1p6ZfsgvjE",
+          authDomain: "kctereg-online.firebaseapp.com",
+          projectId: "kctereg-online",
+          storageBucket: "kctereg-online.firebasestorage.app",
+          messagingSenderId: "308277595556",
+          appId: "1:108277595556:web:1b1814886668eda0310531",
+          measurementId: "G-0NVPXDHQ4H"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // LOGIN SYSTEM
+        window.handleLogin = () => {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const msg = document.getElementById('error-msg');
+
+            // Maamulka User-nada:
+            if(user === "Macalin114" && pass === "kcte114") {
+                alert("Kusoo dhawaada Macalin");
+                document.getElementById('login-ui').classList.add('hidden');
+                document.getElementById('teacher-ui').classList.remove('hidden');
+            } 
+            else if(user === "D.head 5353" && pass === "head53") {
+                alert("Kusoo dhawaada D.head");
+            } 
+            else if(user === "REG.12345" && pass === "reg123") {
+                alert("Kusoo dhawaada Registration");
+            } 
+            else {
+                msg.innerText = "Isticmaale/Password ma jiro!";
+            }
+        };
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- 1. LOGIN UI -->
+    <div id="login-ui" class="flex flex-col items-center justify-center pt-20">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-96 border-t-8 border-blue-900">
+            <h1 class="text-2xl font-black text-center text-blue-900 mb-6 uppercase tracking-widest">KCTE GRADE SYSTEM</h1>
+            <p class="text-gray-500 text-center mb-6 text-sm">Nidaamka Diiwaangelinta Buundooyinka</p>
+            
+            <input type="text" id="username" placeholder="Magaca Isticmaalaha" class="w-full mb-4 p-3 border rounded focus:ring-2 focus:ring-blue-900">
+            <input type="password" id="password" placeholder="Password-ka" class="w-full mb-6 p-3 border rounded focus:ring-2 focus:ring-blue-900">
+            
+            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">GAL NIDAAMKA</button>
+            <p id="error-msg" class="text-red-500 mt-4 text-center font-bold"></p>
+        </div>
+    </div>
+
+    <!-- 2. TEACHER UI (Waa la arki doonaa hadduu Macalin soo galo) -->
+    <div id="teacher-ui" class="hidden container mx-auto p-10">
+        <div class="bg-white p-6 rounded shadow border-l-4 border-green-500">
+            <h2 class="text-2xl font-bold mb-4">Dashbord-ka Macalin114</h2>
+            <p class="mb-4 text-gray-600 italic underline">Halkaan waxaad ka geli kartaa Buundooyinka Excel format ahaan ama adigoo ku daraya magacyada.</p>
+            <hr class="mb-6">
+            
+            <div class="space-y-4">
+                <label class="block font-bold">Upload Grade (Excel Format):</label>
+                <input type="file" class="p-2 border bg-gray-50 w-full rounded">
+                <button class="bg-blue-900 text-white px-6 py-2 rounded">Submit for Approval</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

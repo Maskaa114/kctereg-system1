@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KCTE MASTER SYSTEM v3</title>
+    <title>KCTE SMART GRADE SYSTEM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script type="module">
@@ -22,20 +22,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         let currentRole = "";
+        let finalData = [];
 
-        // Function loogu talagalay inuu fahmo magacyada Column-ka kasta oo Excel-ka ku jira
-        const getStudentInfo = (s) => {
-            const keys = Object.keys(s);
-            // Column 1aad: badanaa waa ID
-            // Column 2aad: badanaa waa Name
-            // Column 3aad: badanaa waa Grade
-            return {
-                id: s[keys[0]] || 'N/A',
-                name: s[keys[1]] || 'N/A',
-                grade: s[keys[2]] || 'N/A'
-            };
-        };
-
+        // Nidaamka Login-ka
         window.login = () => {
             const user = document.getElementById('user').value.trim();
             const pass = document.getElementById('pass').value.trim();
@@ -49,34 +38,62 @@
         function renderUI(role) {
             currentRole = role;
             document.getElementById('login-box').classList.add('hidden');
-            document.getElementById('dash-title').innerText = role + " DASHBOARD";
             document.getElementById('dashboard-ui').classList.remove('hidden');
+            document.getElementById('dash-title').innerText = role + " DASHBOARD";
             if(role === 'Teacher') document.getElementById('teacher-section').classList.remove('hidden');
             if(role === 'HOD') loadData('PENDING_HOD');
             if(role === 'REG') loadData('PENDING_REG');
             if(role === 'Dean') loadData(); 
         }
 
-        let uploadedGrades = [];
+        // SMART EXCEL PARSER: Ka xayuubi cinwaanada, soo saar xogta nadiifka ah
         window.readExcel = (e) => {
             const reader = new FileReader();
             reader.onload = (ev) => {
-                const workbook = XLSX.read(ev.target.result, {type: 'binary'});
-                uploadedGrades = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                alert(uploadedGrades.length + " Arday ayaa la helay!");
+                const data = new Uint8Array(ev.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, {header: 1}); // Read raw rows
+
+                finalData = [];
+                rows.forEach((row) => {
+                    // Baar haddii safkan uu leeyahay ID u eg KCTE (SRLD /...) ama nambar qof.
+                    // Waxaan raadineynaa safafka dhabta ah ee ardayda.
+                    const rowStr = row.join("|").toLowerCase();
+                    if(rowStr.includes("srld") || row.length > 3 && !rowStr.includes("college") && !rowStr.includes("regular")) {
+                        let studentId = row.find(c => String(c).toUpperCase().includes("SRLD") || String(c).includes("/"));
+                        let studentName = row[1] || row[2]; // Badanaa waa Col B ama C
+                        let studentGrade = row[row.length - 1]; // Buundada dhabta ah ee u dambeysa
+
+                        if(studentId && studentName) {
+                            finalData.push({
+                                id: String(studentId).trim(),
+                                name: String(studentName).trim(),
+                                grade: String(studentGrade).trim()
+                            });
+                        }
+                    }
+                });
+
+                if(finalData.length > 0) {
+                    alert("WAA LA HELAY: " + finalData.length + " Arday oo xogtoodu nadiif tahay!");
+                    console.log("Cleaned Data:", finalData);
+                } else {
+                    alert("Excel-ka ma uusan helin ID sax ah. Hubi nambarka SRLD.");
+                }
             };
-            reader.readAsBinaryString(e.target.files[0]);
+            reader.readAsArrayBuffer(e.target.files[0]);
         };
 
         window.submitToHOD = async () => {
-            if(uploadedGrades.length == 0) return alert("Soo geli Excel-ka!");
+            if(finalData.length == 0) return alert("Fadlan kow soo geli Excel file-ka!");
             await addDoc(collection(db, "grades"), {
                 teacher: "Macalin114",
-                students: uploadedGrades,
+                students: finalData,
                 status: "PENDING_HOD",
                 at: new Date().toLocaleString()
             });
-            alert("Loo diray HOD!"); location.reload();
+            alert("Grade-kii nadiifka ahaa waxaa loo diray HOD!"); location.reload();
         };
 
         function loadData(status) {
@@ -85,90 +102,121 @@
                 let h = "";
                 snap.forEach(d => {
                     const data = d.data();
-                    let studentRows = "";
-                    // Halkaan waxaan ku hureynaa xogta dhabta ah ee gudaha Excel-ka
+                    let rows = "";
                     data.students.slice(0, 10).forEach(s => {
-                        const info = getStudentInfo(s);
-                        studentRows += `<tr><td class='border p-1 text-xs'>${info.id}</td><td class='border p-1 text-xs'>${info.name}</td><td class='border p-1 text-xs font-bold text-red-600'>${info.grade}</td></tr>`;
+                        rows += `<tr class='border-b hover:bg-slate-50'>
+                            <td class='p-2'>${s.id}</td>
+                            <td class='p-2'>${s.name}</td>
+                            <td class='p-2 font-black text-red-600'>${s.grade}</td>
+                        </tr>`;
                     });
-
-                    h += `<div class="bg-white p-4 border-2 mb-6 rounded shadow-xl">
-                        <div class="flex justify-between mb-4">
-                            <h3 class="font-black text-blue-900">${data.teacher} SUBMISSION (${data.status})</h3>
+                    h += `<div class="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-slate-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 class="font-black text-indigo-900 uppercase">KCTE - ${data.teacher} Submission</h3>
+                                <p class="text-xs text-gray-500 font-bold">${data.at} | ${data.students.length} Arday</p>
+                            </div>
                             <div class="space-x-2">
-                                ${(currentRole=='HOD' && data.status=='PENDING_HOD') ? `<button onclick="act('${d.id}', 'PENDING_REG')" class="bg-green-600 text-white px-3 py-1 rounded">Oggolaaw (HOD)</button>` : ""}
-                                ${(currentRole=='REG' && data.status=='PENDING_REG') ? `<button onclick="act('${d.id}', 'APPROVED')" class="bg-indigo-950 text-white px-3 py-1 rounded">FINAL APPROVE</button>` : ""}
-                                <button onclick="deleteDoc('${d.id}')" class="bg-red-400 text-white px-2 py-1 text-xs">Delete</button>
+                                ${(currentRole=='HOD' && data.status=='PENDING_HOD') ? `<button onclick="act('${d.id}', 'PENDING_REG')" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold">APPROVE TO REG</button>` : ""}
+                                ${(currentRole=='REG' && data.status=='PENDING_REG') ? `<button onclick="act('${d.id}', 'APPROVED')" class="bg-indigo-700 text-white px-4 py-2 rounded-lg font-black">FINAL APPROVE</button>` : ""}
+                                <button onclick="deleteD('${d.id}')" class="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs">Reject</button>
                             </div>
                         </div>
-                        <table class="w-full border text-left text-sm">
-                            <thead class="bg-gray-100"><tr><th class="p-1 border">ID (Col 1)</th><th class="p-1 border">Name (Col 2)</th><th class="p-1 border">Grade (Col 3)</th></tr></thead>
-                            <tbody>${studentRows}</tbody>
+                        <table class="w-full text-left text-sm border">
+                            <thead class="bg-indigo-950 text-white italic"><tr><th class="p-2">ID NO.</th><th class="p-2">NAME</th><th class="p-2">FINAL GRADE</th></tr></thead>
+                            <tbody>${rows}</tbody>
                         </table>
                     </div>`;
                 });
-                document.getElementById('list-box').innerHTML = h || "Majiraan wax xog ah.";
+                document.getElementById('list-box').innerHTML = h || "<p class='text-center py-10 text-gray-400'>Majiraan xog la sugayo.</p>";
             });
         }
 
-        window.act = async (id, s) => { await updateDoc(doc(db, "grades", id), { status: s }); alert("Success!"); };
-        
+        window.act = async (id, s) => { if(confirm("Ma gudbinaysaa xogta?")) { await updateDoc(doc(db, "grades", id), { status: s }); alert("Success!"); } };
+        window.deleteD = async (id) => { if(confirm("Ma tirtiraysaa?")) { await deleteDoc(doc(db, "grades", id)); } };
+
+        // STUDENT SEARCH: Hubi ID walba oo u dhigma KCTE format
         window.studentSearch = async () => {
-            const idInput = document.getElementById('student-id').value.trim();
+            const input = document.getElementById('st-id').value.trim();
+            const resultDiv = document.getElementById('st-result');
+            resultDiv.innerHTML = "Raadinayaa...";
+            
             const q = query(collection(db, "grades"), where("status", "==", "APPROVED"));
             const snap = await getDocs(q);
             let found = null;
+
             snap.forEach(doc => {
-                doc.data().students.forEach(s => {
-                    const info = getStudentInfo(s);
-                    if(String(info.id).trim() === idInput) found = info;
-                });
+                const sList = doc.data().students;
+                let match = sList.find(s => s.id.toLowerCase() === input.toLowerCase());
+                if(match) found = match;
             });
+
             if(found) {
-                document.getElementById('result').innerHTML = `<div class="mt-4 p-4 bg-yellow-100 border-2 border-yellow-600 rounded">
-                    <p class="font-bold">Student: ${found.name}</p>
-                    <h2 class="text-3xl font-black">Grade: ${found.grade}</h2>
-                </div>`;
+                resultDiv.innerHTML = `
+                    <div class="mt-4 p-6 bg-indigo-50 border-4 border-indigo-950 rounded-2xl animate-pulse">
+                        <p class="text-xs uppercase font-black text-indigo-800 tracking-tighter">KEBRIDAHAR COLLEGE OF TEACHER EDUCATION</p>
+                        <h1 class="text-2xl font-black mt-2 text-slate-800">${found.name}</h1>
+                        <p class="text-sm text-gray-500 mt-1">ID NO: ${found.id}</p>
+                        <div class="mt-4 bg-white p-4 inline-block rounded-xl border-2 border-indigo-900 shadow-lg">
+                           <span class="text-gray-400 block text-[10px] font-bold">OFFICIAL GRADE</span>
+                           <span class="text-5xl font-black text-indigo-900">${found.grade}</span>
+                        </div>
+                    </div>`;
             } else {
-                alert("Lama helin arday oggolaansho leh oo ID-gaan leh.");
+                resultDiv.innerHTML = "<p class='mt-4 p-4 bg-red-100 text-red-700 rounded-xl font-bold'>Ardaygan laguma hayo xog Approved ah. Hubi ID-ga (SRLD/...).</p>";
             }
         };
+
     </script>
 </head>
-<body class="bg-slate-100">
-    <nav class="bg-indigo-950 p-4 text-white font-bold flex justify-between items-center shadow-2xl">
-        <span>KCTE SYSTEM</span>
-        <button onclick="document.getElementById('st-modal').classList.remove('hidden')" class="bg-yellow-500 text-indigo-900 px-4 py-1 rounded text-xs font-black shadow">ARDAYDA</button>
+<body class="bg-slate-100 font-sans">
+    
+    <!-- HEADER -->
+    <nav class="bg-indigo-950 p-6 text-white border-b-4 border-yellow-500 shadow-2xl flex justify-between items-center">
+        <h1 class="font-black text-2xl tracking-tighter flex items-center gap-2">KCTE <span class="bg-yellow-500 text-indigo-900 px-2 rounded italic text-sm">MANAGEMENT</span></h1>
+        <button onclick="document.getElementById('mod').classList.remove('hidden')" class="bg-yellow-500 text-indigo-900 px-6 py-2 rounded-full font-black hover:bg-white transition-all text-xs">ARDAYDA: CHECK GRADE</button>
     </nav>
 
-    <!-- LOGIN SECTION -->
-    <div id="login-box" class="max-w-xs mx-auto mt-20 bg-white p-8 rounded shadow-2xl border-t-8 border-indigo-950">
-        <h2 class="font-bold mb-4">STAFF LOGIN</h2>
-        <input id="user" type="text" placeholder="Username" class="w-full border p-3 rounded mb-4">
-        <input id="pass" type="password" placeholder="Password" class="w-full border p-3 rounded mb-4">
-        <button onclick="login()" class="w-full bg-indigo-950 text-white p-3 rounded font-bold">GASHID</button>
+    <!-- LOGIN BOX -->
+    <div id="login-box" class="max-w-md mx-auto mt-20 bg-white p-10 rounded-3xl shadow-2xl border-t-8 border-indigo-900">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-black text-indigo-950">GASHIDKA STAFF</h2>
+            <p class="text-gray-400 italic text-sm">Fadlan geli macluumaadkaaga diiwaangashan.</p>
+        </div>
+        <input id="user" type="text" placeholder="Isticmaalaha" class="w-full border-2 p-4 rounded-2xl mb-4 focus:border-yellow-500 outline-none">
+        <input id="pass" type="password" placeholder="Furaha Sirta" class="w-full border-2 p-4 rounded-2xl mb-8 focus:border-yellow-500 outline-none">
+        <button onclick="login()" class="w-full bg-indigo-900 hover:bg-indigo-700 text-white p-5 rounded-2xl font-black text-xl transition-transform active:scale-95 shadow-xl uppercase">GAL DASHBOARD-KA</button>
     </div>
 
     <!-- DASHBOARD -->
-    <div id="dashboard-ui" class="hidden p-6 max-w-4xl mx-auto">
-        <h2 id="dash-title" class="text-2xl font-black mb-8 border-l-8 border-yellow-500 pl-4 uppercase">DASHBOARD</h2>
-        <div id="teacher-section" class="hidden bg-white p-6 rounded shadow mb-8">
-            <h3 class="font-bold mb-4 underline">SUBMIT EXCEL (MACALIN)</h3>
-            <input type="file" onchange="readExcel(event)" class="text-xs">
-            <button onclick="submitToHOD()" class="bg-blue-800 text-white px-4 py-2 mt-4 rounded shadow font-bold">Gudbi faylka</button>
+    <div id="dashboard-ui" class="hidden p-8 max-w-5xl mx-auto animate-fade-in">
+        <h2 id="dash-title" class="text-3xl font-black mb-10 text-indigo-950 border-l-8 border-yellow-500 pl-4 tracking-tighter italic">DASHBOARD</h2>
+        
+        <!-- Section for Teacher -->
+        <div id="teacher-section" class="hidden bg-white p-10 rounded-3xl shadow-xl border-2 mb-10">
+            <h3 class="font-black text-xl mb-6 text-indigo-950 underline decoration-yellow-400">📤 SOO GUDBI EXCEL-KA (KCTE FORMAT)</h3>
+            <div class="bg-slate-50 border-4 border-dashed rounded-3xl p-10 text-center">
+                <input type="file" onchange="readExcel(event)" accept=".xlsx, .xls" class="mb-4">
+                <p class="text-[10px] text-gray-400 mb-6 font-bold italic italic underline">Xusuusin: System-ku wuxuu toos u garanayaa SRLD ID-ga iyo Grade-ka.</p>
+                <button onclick="submitToHOD()" class="bg-indigo-950 text-white px-10 py-4 rounded-2xl font-black shadow-2xl hover:scale-105 transition-transform uppercase">Gudbi Faylka Nadiifta Ah</button>
+            </div>
         </div>
+
+        <!-- Approval Box -->
         <div id="list-box"></div>
     </div>
 
-    <!-- STUDENT MODAL -->
-    <div id="st-modal" class="hidden fixed inset-0 bg-indigo-950/90 flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-3xl w-full max-w-sm">
-            <h2 class="font-black text-center text-lg mb-6 text-indigo-950 uppercase">KAEEG BUUNDADA</h2>
-            <input id="student-id" type="text" placeholder="GELI ID-gaaga" class="w-full border-2 p-4 rounded-xl mb-4 text-center text-xl font-bold border-indigo-950 outline-none">
-            <button onclick="studentSearch()" class="w-full bg-indigo-950 text-white p-4 rounded-xl font-bold hover:bg-yellow-500 hover:text-indigo-950 transition">SEARCH</button>
-            <div id="result" class="text-center"></div>
-            <button onclick="document.getElementById('st-modal').classList.add('hidden')" class="w-full mt-4 text-xs underline text-gray-400">XIR</button>
+    <!-- MODAL FOR STUDENTS -->
+    <div id="mod" class="hidden fixed inset-0 bg-indigo-900/90 backdrop-blur-sm flex items-center justify-center p-6 z-50">
+        <div class="bg-white p-10 rounded-[2.5rem] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] w-full max-w-sm border-t-8 border-indigo-950">
+            <h2 class="font-black text-2xl text-indigo-950 mb-1 tracking-tighter uppercase">HEEGSID NATIIJO</h2>
+            <p class="text-[10px] text-gray-400 mb-8 italic uppercase">Official student tracking portal</p>
+            <input id="st-id" type="text" placeholder="SRLD /001 /15" class="w-full border-2 p-5 rounded-2xl mb-4 font-bold text-indigo-900 border-indigo-100 text-center uppercase tracking-widest text-lg">
+            <button onclick="studentSearch()" class="w-full bg-indigo-950 text-white p-5 rounded-2xl font-black text-xl hover:bg-yellow-500 hover:text-indigo-900 transition-all uppercase">Check Grade</button>
+            <div id="st-result"></div>
+            <button onclick="document.getElementById('mod').classList.add('hidden')" class="w-full mt-6 text-gray-300 font-bold uppercase underline text-[10px]">Back to home</button>
         </div>
     </div>
+
 </body>
 </html>

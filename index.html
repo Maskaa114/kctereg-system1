@@ -3,83 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KCTE Online Grade System</title>
+    <title>KCTE ONLINE GRADE SYSTEM</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // KAN WAAYE CONFIG-GAADII AAD HAYSAY - WAA SAX:
+        // FIREBASE CONFIG-GAAGII RAKIDKA AHAA
         const firebaseConfig = {
-          apiKey: "AIzaSyDoMZETvL5-oYm5wiP2dcbLm1p6ZfsgvjE",
-          authDomain: "kctereg-online.firebaseapp.com",
-          projectId: "kctereg-online",
-          storageBucket: "kctereg-online.firebasestorage.app",
-          messagingSenderId: "308277595556",
-          appId: "1:108277595556:web:1b1814886668eda0310531",
-          measurementId: "G-0NVPXDHQ4H"
+            apiKey: "AIzaSyDoMZETvL5-oYm5wiP2dcbLm1p6ZfsgvjE",
+            authDomain: "kctereg-online.firebaseapp.com",
+            projectId: "kctereg-online",
+            storageBucket: "kctereg-online.firebasestorage.app",
+            messagingSenderId: "308277595556",
+            appId: "1:308277595556:web:1b1814886668eda0310531"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
         const db = getFirestore(app);
+        let currentUser = null;
 
-        // LOGIN SYSTEM
-        window.handleLogin = () => {
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-            const msg = document.getElementById('error-msg');
+        // --- LOGIN LOGIC ---
+        window.login = () => {
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+            
+            if(user === "Macalin114" && pass === "kctepass") { setupUser('Teacher'); }
+            else if(user === "D.head 5353" && pass === "headpass") { setupUser('HOD'); }
+            else if(user === "REG.12345" && pass === "regpass") { setupUser('REG'); }
+            else if(user === "dean12345" && pass === "deanpass") { setupUser('Dean'); }
+            else { alert("ID ama Password-ka waa khalad!"); }
+        };
 
-            // Maamulka User-nada:
-            if(user === "Macalin114" && pass === "kcte114") {
-                alert("Kusoo dhawaada Macalin");
-                document.getElementById('login-ui').classList.add('hidden');
-                document.getElementById('teacher-ui').classList.remove('hidden');
-            } 
-            else if(user === "D.head 5353" && pass === "head53") {
-                alert("Kusoo dhawaada D.head");
-            } 
-            else if(user === "REG.12345" && pass === "reg123") {
-                alert("Kusoo dhawaada Registration");
-            } 
-            else {
-                msg.innerText = "Isticmaale/Password ma jiro!";
-            }
+        function setupUser(role) {
+            currentUser = role;
+            document.getElementById('login-div').classList.add('hidden');
+            document.getElementById('nav-user').innerText = role + " Session";
+            document.getElementById('main-content').classList.remove('hidden');
+            if(role === 'Teacher') document.getElementById('teacher-ui').classList.remove('hidden');
+            if(role === 'HOD') { document.getElementById('approval-ui').classList.remove('hidden'); loadSubmissions('PENDING_HOD'); }
+            if(role === 'REG') { document.getElementById('approval-ui').classList.remove('hidden'); loadSubmissions('PENDING_REG'); }
+            if(role === 'Dean') { document.getElementById('approval-ui').classList.remove('hidden'); loadSubmissions(); }
+        }
+
+        // --- EXCEL UPLOAD LOGIC ---
+        let gradeBuffer = [];
+        window.handleFile = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const data = evt.target.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                gradeBuffer = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                alert(gradeBuffer.length + " Arday oo Excel ah waa la akhriyey.");
+            };
+            reader.readAsBinaryString(file);
+        };
+
+        window.submitToHOD = async () => {
+            if(gradeBuffer.length === 0) return alert("Fadlan kow soo geli Excel file");
+            await addDoc(collection(db, "grade_submissions"), {
+                teacher: "Macalin114",
+                grades: gradeBuffer,
+                status: "PENDING_HOD", // Macalinku wuxuu u diraa HOD
+                createdAt: new Date().toLocaleString()
+            });
+            alert("Grade-kii waxaa loo diray HOD-ka Approval");
+            location.reload();
+        };
+
+        // --- APPROVAL WORKFLOW ---
+        async function loadSubmissions(statusFilter) {
+            const q = statusFilter ? query(collection(db, "grade_submissions"), where("status", "==", statusFilter)) : query(collection(db, "grade_submissions"));
+            onSnapshot(q, (snapshot) => {
+                let html = "";
+                snapshot.forEach((d) => {
+                    const data = d.data();
+                    html += `
+                        <div class="bg-white p-4 rounded-lg shadow mb-4 border-l-8 ${data.status === 'APPROVED' ? 'border-green-500' : 'border-yellow-500'}">
+                            <div class="flex justify-between">
+                                <div>
+                                    <h3 class="font-bold">Macalinka: ${data.teacher}</h3>
+                                    <p class="text-xs text-gray-500">Date: ${data.createdAt}</p>
+                                    <p class="text-sm font-bold text-blue-600">Status: ${data.status}</p>
+                                </div>
+                                <div class="space-x-2">
+                                    ${(currentUser === 'HOD' && data.status === 'PENDING_HOD') ? 
+                                    `<button onclick="updateStatus('${d.id}', 'PENDING_REG')" class="bg-green-600 text-white px-3 py-1 rounded">Approve</button>
+                                     <button onclick="updateStatus('${d.id}', 'REJECTED')" class="bg-red-600 text-white px-3 py-1 rounded">Return</button>` : ''}
+                                    
+                                    ${(currentUser === 'REG' && data.status === 'PENDING_REG') ? 
+                                    `<button onclick="updateStatus('${d.id}', 'APPROVED')" class="bg-blue-800 text-white px-3 py-1 rounded">Final Approve</button>
+                                     <button onclick="updateStatus('${d.id}', 'PENDING_HOD')" class="bg-red-600 text-white px-3 py-1 rounded">Reject to HOD</button>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('submission-list').innerHTML = html || "<p class='text-gray-500'>Majiraan xog la sugayo.</p>";
+            });
+        }
+
+        window.updateStatus = async (id, newStatus) => {
+            await updateDoc(doc(db, "grade_submissions", id), { status: newStatus });
+            alert("Status-kii waa la bedelay: " + newStatus);
         };
     </script>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-slate-100 font-sans">
 
-    <!-- 1. LOGIN UI -->
-    <div id="login-ui" class="flex flex-col items-center justify-center pt-20">
-        <div class="bg-white p-8 rounded-lg shadow-xl w-96 border-t-8 border-blue-900">
-            <h1 class="text-2xl font-black text-center text-blue-900 mb-6 uppercase tracking-widest">KCTE GRADE SYSTEM</h1>
-            <p class="text-gray-500 text-center mb-6 text-sm">Nidaamka Diiwaangelinta Buundooyinka</p>
-            
-            <input type="text" id="username" placeholder="Magaca Isticmaalaha" class="w-full mb-4 p-3 border rounded focus:ring-2 focus:ring-blue-900">
-            <input type="password" id="password" placeholder="Password-ka" class="w-full mb-6 p-3 border rounded focus:ring-2 focus:ring-blue-900">
-            
-            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">GAL NIDAAMKA</button>
-            <p id="error-msg" class="text-red-500 mt-4 text-center font-bold"></p>
+    <!-- NAVBAR -->
+    <nav class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-lg">
+        <h1 class="font-black text-xl tracking-tighter">KCTE ONLINE GRADE SYSTEM</h1>
+        <div id="nav-user" class="text-sm font-bold">Lama soo galin</div>
+    </nav>
+
+    <!-- LOGIN SECTION -->
+    <div id="login-div" class="max-w-md mx-auto mt-20 bg-white p-10 rounded-2xl shadow-2xl">
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-slate-800">Ku Soo Dhawaada</h2>
+            <p class="text-gray-500">Geli xogtaada si aad u bilawdo</p>
         </div>
+        <div class="space-y-4">
+            <input id="user" type="text" placeholder="Username (tusaale Macalin114)" class="w-full p-4 border border-slate-300 rounded-xl outline-blue-600">
+            <input id="pass" type="password" placeholder="Password-ka" class="w-full p-4 border border-slate-300 rounded-xl outline-blue-600">
+            <button onclick="login()" class="w-full bg-blue-900 text-white p-4 rounded-xl font-bold text-lg hover:bg-blue-800 transition">GAL NIDAAMKA</button>
+        </div>
+        <p class="mt-6 text-center text-xs text-gray-400">Dhammaan xuquuqda waa dhowran tahay &copy; 2024</p>
     </div>
 
-    <!-- 2. TEACHER UI (Waa la arki doonaa hadduu Macalin soo galo) -->
-    <div id="teacher-ui" class="hidden container mx-auto p-10">
-        <div class="bg-white p-6 rounded shadow border-l-4 border-green-500">
-            <h2 class="text-2xl font-bold mb-4">Dashbord-ka Macalin114</h2>
-            <p class="mb-4 text-gray-600 italic underline">Halkaan waxaad ka geli kartaa Buundooyinka Excel format ahaan ama adigoo ku daraya magacyada.</p>
-            <hr class="mb-6">
-            
-            <div class="space-y-4">
-                <label class="block font-bold">Upload Grade (Excel Format):</label>
-                <input type="file" class="p-2 border bg-gray-50 w-full rounded">
-                <button class="bg-blue-900 text-white px-6 py-2 rounded">Submit for Approval</button>
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div id="main-content" class="hidden container mx-auto p-8 animate-fade-in">
+        
+        <!-- TEACHER VIEW -->
+        <div id="teacher-ui" class="hidden bg-white p-8 rounded-2xl shadow-lg border-t-8 border-green-500">
+            <h2 class="text-2xl font-bold mb-4">Gudbinta Buundooyinka (Macalin114)</h2>
+            <div class="p-10 border-4 border-dashed border-slate-200 rounded-3xl text-center">
+                <p class="mb-4 text-slate-500 font-semibold italic underline">Fadlan halkan ku rido Excel File-ka ardayda (KCTE Format)</p>
+                <input type="file" onchange="handleFile(event)" accept=".xlsx, .xls" class="mb-4 block mx-auto text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <button onclick="submitToHOD()" class="bg-blue-900 text-white px-10 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-800">Submit for Approval</button>
             </div>
         </div>
+
+        <!-- APPROVAL VIEW (For HOD & REG) -->
+        <div id="approval-ui" class="hidden">
+            <h2 class="text-2xl font-bold mb-6 text-slate-800">Dashboardka Ogolaanshaha</h2>
+            <div id="submission-list"></div>
+        </div>
+
     </div>
 
 </body>

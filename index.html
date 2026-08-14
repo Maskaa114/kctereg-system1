@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KCTE ONLINE FORM SYSTEM</title>
+    <title>KCTE - SMART REGISTRATION</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, doc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, doc, onSnapshot, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDoMZETvL5-oYm5wiP2dcbLm1p6ZfsgvjE",
@@ -21,177 +21,224 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         let role = "";
-        let studentEntries = [];
+        let currentStudents = [];
 
+        // LOGIN SYSTEM
         window.login = () => {
-            const u = document.getElementById('u').value.trim();
-            const p = document.getElementById('p').value.trim();
-            if(u === "Macalin114" && p === "kctepass") showPortal("Teacher");
-            else if(u === "D.head 5353" && p === "headpass") showPortal("HOD");
-            else if(u === "REG.12345" && p === "regpass") showPortal("REG");
-            else if(u === "dean12345" && p === "deanpass") showPortal("Dean");
+            const u = document.getElementById('user').value.trim();
+            const p = document.getElementById('pass').value.trim();
+            
+            if(u === "Macalin114" && p === "kctepass") start("Teacher");
+            else if(u === "D.head 5353" && p === "headpass") start("HOD");
+            else if(u === "REG.12345" && p === "regpass") start("REG");
+            else if(u === "dean12345" && p === "deanpass") start("Dean");
             else alert("ID ama Password khalad ah!");
         };
 
-        function showPortal(r) {
+        function start(r) {
             role = r;
-            document.getElementById('login-box').classList.add('hidden');
-            document.getElementById('main-ui').classList.remove('hidden');
-            document.getElementById('u-info').innerText = role;
-            if(role === 'Teacher') document.getElementById('teacher-entry').classList.remove('hidden');
-            if(role === 'HOD') loadAdminData('PENDING_HOD');
-            if(role === 'REG') loadAdminData('PENDING_REG');
-            if(role === 'Dean') loadAdminData();
+            document.getElementById('login-div').style.display = "none";
+            document.getElementById('nav-role').innerText = r + " Dashboard";
+            document.getElementById('dashboard').classList.remove('hidden');
+
+            if(role === "Teacher") document.getElementById('teacher-ui').classList.remove('hidden');
+            if(role === "HOD") loadData('PENDING_HOD');
+            if(role === "REG") loadData('PENDING_REG');
+            if(role === "Dean") loadData();
         }
 
-        window.addStudentRow = () => {
-            const id = document.getElementById('st-id-input').value;
-            const name = document.getElementById('st-name-input').value;
-            const mark = document.getElementById('st-mark-input').value;
-            const grade = document.getElementById('st-grade-input').value;
+        // TEACHER: ADD STUDENT TO FORM
+        window.addStudent = () => {
+            const name = document.getElementById('st-name').value;
+            const id = document.getElementById('st-id').value.toUpperCase().replace(/\s+/g, '');
+            const phone = document.getElementById('st-phone').value;
+            const mark = document.getElementById('st-mark').value;
+            const grade = document.getElementById('st-grade').value.toUpperCase();
 
-            if(!id || !name || !grade) return alert("Fadlan buuxi meelaha bannaan");
+            if(!name || !id || !phone || !grade) return alert("Fadlan wada buuxi xogta ardayga!");
 
-            studentEntries.push({ id, name, mark, grade });
-            renderTable();
+            currentStudents.push({ name, id, phone, mark, grade });
+            renderTeacherTable();
+
             // Clear inputs
-            document.getElementById('st-id-input').value = "";
-            document.getElementById('st-name-input').value = "";
-            document.getElementById('st-mark-input').value = "";
-            document.getElementById('st-grade-input').value = "";
+            document.getElementById('st-name').value = "";
+            document.getElementById('st-id').value = "";
+            document.getElementById('st-phone').value = "";
+            document.getElementById('st-mark').value = "";
+            document.getElementById('st-grade').value = "";
         };
 
-        function renderTable() {
-            let html = "";
-            studentEntries.forEach((s, index) => {
-                html += `<tr class="border-b"><td>${index+1}</td><td>${s.id}</td><td>${s.name}</td><td>${s.mark}</td><td>${s.grade}</td></tr>`;
+        function renderTeacherTable() {
+            let h = "";
+            currentStudents.forEach((s, i) => {
+                h += `<tr class='border-b'>
+                    <td class='p-2'>${i+1}</td>
+                    <td class='p-2'>${s.id}</td>
+                    <td class='p-2'>${s.name}</td>
+                    <td class='p-2 text-indigo-600'>${s.phone}</td>
+                    <td class='p-2 font-black'>${s.grade}</td>
+                </tr>`;
             });
-            document.getElementById('st-tbody').innerHTML = html;
+            document.getElementById('teacher-tbody').innerHTML = h;
         }
 
-        window.submitReport = async () => {
-            const course = document.getElementById('c-name').value;
-            if(!course || studentEntries.length == 0) return alert("Fadlan geli Maadada iyo ugu yaraan hal arday.");
+        window.submitToHOD = async () => {
+            const course = document.getElementById('course-name').value;
+            if(!course || currentStudents.length == 0) return alert("Magaca Maadada qor oo ugu yaraan hal arday buuxi!");
             
             try {
-                await addDoc(collection(db, "web_reports"), {
-                    teacher: "Macalin114",
-                    course: course,
-                    students: studentEntries,
+                await addDoc(collection(db, "grades_official"), {
+                    course: course.toUpperCase(),
+                    instructor: "Macalin114",
+                    students: currentStudents,
                     status: "PENDING_HOD",
-                    date: new Date().toLocaleString()
+                    date: new Date().toLocaleString(),
+                    count: currentStudents.length
                 });
-                alert("GUUL: Buundooyinkii waa la diray!");
+                alert("GUUL: Buundooyinka waxaa loo diray Hubinta HOD!");
                 location.reload();
-            } catch (err) {
-                alert("Khalad baa dhacay! Hubi Firestore Rules. " + err.message);
+            } catch(e) { alert("Khalad baa dhacay! rules furan yihiin."); }
+        };
+
+        // ADMIN LOADER
+        function loadData(st) {
+            const q = st ? query(collection(db, "grades_official"), where("status", "==", st)) : collection(db, "grades_official");
+            onSnapshot(q, (snap) => {
+                let listH = "";
+                snap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    let sTable = "";
+                    data.students.forEach(s => {
+                        sTable += `<tr class='border-b'><td class='p-1'>${s.id}</td><td class='p-1'>${s.name}</td><td class='p-1'>${s.phone}</td><td class='p-1 font-bold'>${s.grade}</td></tr>`;
+                    });
+
+                    listH += `<div class='bg-white p-6 rounded-3xl shadow-xl mb-6 border-l-[15px] border-indigo-950 animate-fade-in'>
+                        <div class='flex justify-between border-b pb-4 mb-4'>
+                            <div><h3 class='font-black text-indigo-900 text-xl'>${data.course}</h3><p class='text-[10px] uppercase font-bold text-gray-400'>Inst: ${data.instructor} | Students: ${data.count}</p></div>
+                            <div class='flex gap-2 h-fit'>
+                                ${(role=='HOD' && data.status=='PENDING_HOD') ? `<button onclick="updateStatus('${docSnap.id}', 'PENDING_REG')" class='bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold'>Ogolaw</button>` : ""}
+                                ${(role=='REG' && data.status=='PENDING_REG') ? `<button onclick="updateStatus('${docSnap.id}', 'APPROVED')" class='bg-indigo-900 text-white px-4 py-2 rounded-xl text-xs font-black uppercase underline'>Ogolaw-Final</button>` : ""}
+                                <button onclick="delDoc('${docSnap.id}')" class='bg-red-400 text-white px-2 py-1 rounded text-[10px]'>Delete</button>
+                            </div>
+                        </div>
+                        <details><summary class='text-xs font-black text-blue-500 uppercase'>Guji halkan si aad u aragto List-iga ▽</summary>
+                            <table class='w-full text-left text-[11px] mt-4 border'><thead><tr class='bg-gray-50 uppercase font-black'><th>ID No</th><th>Magaca</th><th>Verification No</th><th>Grade</th></tr></thead><tbody>${sTable}</tbody></table>
+                        </details>
+                    </div>`;
+                });
+                document.getElementById('list-area').innerHTML = listH || "<p class='text-center opacity-30 uppercase font-black py-20 italic'>Majiraan xog la oggolaanayo...</p>";
+            });
+        }
+
+        window.updateStatus = async (id, s) => { await updateDoc(doc(db, "grades_official", id), { status: s }); alert("Approved!"); };
+        window.delDoc = async (id) => { if(confirm("Ma tirtiraysaa?")) await deleteDoc(doc(db, "grades_official", id)); };
+
+        // STUDENT SECURITY SEARCH (ID + PHONE)
+        window.searchResult = async () => {
+            const sid = document.getElementById('std-id').value.trim().toUpperCase().replace(/\s+/g, '');
+            const sphone = document.getElementById('std-phone').value.trim();
+            const rDiv = document.getElementById('std-res');
+            if(!sid || !sphone) return alert("Fadlan qor ID Numberkaaga iyo Lambarkaaga!");
+            
+            rDiv.innerHTML = "<p class='animate-pulse'>Awood-xaqiijin baa socota...</p>";
+
+            const q = query(collection(db, "grades_official"), where("status", "==", "APPROVED"));
+            const snapshot = await getDocs(q);
+            let found = null; let metadata = null;
+
+            snapshot.forEach(d => {
+                const sMatch = d.data().students.find(s => s.id === sid && s.phone === sphone);
+                if(sMatch) { found = sMatch; metadata = d.data(); }
+            });
+
+            if(found) {
+                rDiv.innerHTML = `
+                <div class='mt-6 p-8 bg-indigo-50 border-4 border-indigo-950 rounded-[2.5rem] shadow-2xl animate-fade-in text-center'>
+                    <p class='text-[10px] font-black text-indigo-400 mb-4 italic uppercase tracking-widest border-b pb-2'>Kebridahar Teachers College - Result</p>
+                    <h2 class='text-3xl font-black text-indigo-950 uppercase'>${found.name}</h2>
+                    <p class='text-xs font-bold text-slate-500 uppercase mt-2'>${metadata.course}</p>
+                    <div class='grid grid-cols-2 gap-4 mt-8'>
+                        <div class='bg-white p-6 rounded-2xl border-2'> <span class='block text-[8px] font-bold text-gray-300 uppercase'>Subject Marks</span> <h1 class='text-4xl font-black text-indigo-900'>${found.mark}%</h1> </div>
+                        <div class='bg-indigo-950 text-white p-6 rounded-2xl border-4 border-yellow-500'> <span class='block text-[8px] font-bold text-indigo-300 uppercase italic'>FINAL GRADE</span> <h1 class='text-6xl font-black italic'>${found.grade}</h1> </div>
+                    </div>
+                    <p class='mt-8 text-[10px] text-green-600 font-bold underline underline-offset-4 decoration-dotted'>OFFICIALLY VERIFIED: 2026</p>
+                </div>`;
+            } else {
+                rDiv.innerHTML = "<p class='mt-4 p-4 bg-red-100 text-red-600 rounded-xl font-bold text-xs uppercase'>Maysan iswaafaqin xogta (Wrong ID/Phone) ama natiijadaadu ma oggolaan wali.</p>";
             }
         };
 
-        function loadAdminData(st) {
-            const q = st ? query(collection(db, "web_reports"), where("status", "==", st)) : collection(db, "web_reports");
-            onSnapshot(q, (snap) => {
-                let listHtml = "";
-                snap.forEach(d => {
-                    const info = d.data();
-                    let stRows = "";
-                    info.students.forEach(s => {
-                        stRows += `<tr class="border-b text-xs"><td>${s.id}</td><td>${s.name}</td><td>${s.mark}</td><td>${s.grade}</td></tr>`;
-                    });
-                    listHtml += `
-                    <div class="bg-white p-6 rounded-3xl shadow-lg mb-8 border border-slate-200">
-                        <div class="flex justify-between border-b pb-2 mb-4">
-                            <div><h3 class="font-black text-indigo-900">${info.course.toUpperCase()}</h3><p class="text-[10px]">By ${info.teacher}</p></div>
-                            <div>
-                                ${(role=='HOD' && info.status=='PENDING_HOD') ? `<button onclick="updateDoc('${d.id}','PENDING_REG')" class="bg-green-600 text-white px-3 py-1 rounded font-bold">APPROVE</button> <button onclick="delDoc('${d.id}')" class="bg-red-400 text-white px-3 py-1 rounded font-bold">REJECT</button>` : ''}
-                                ${(role=='REG' && info.status=='PENDING_REG') ? `<button onclick="updateDoc('${d.id}','APPROVED')" class="bg-indigo-950 text-white px-4 py-1 rounded font-bold uppercase underline">Final Approve</button>` : ''}
-                            </div>
-                        </div>
-                        <table class="w-full text-left text-xs"><thead class="bg-slate-50"><tr><th>ID</th><th>Magaca</th><th>Dhibco</th><th>Grade</th></tr></thead><tbody>${stRows}</tbody></table>
-                    </div>`;
-                });
-                document.getElementById('audit-list').innerHTML = listHtml;
-            });
-        }
-
-        window.updateDoc = async (id, s) => { await updateDoc(doc(db, "web_reports", id), { status: s }); alert("Approved!"); };
-        window.delDoc = async (id) => { await deleteDoc(doc(db, "web_reports", id)); alert("Rejected/Deleted"); };
-
-        window.checkMyResult = async () => {
-            const stId = document.getElementById('search-val').value.trim().toUpperCase();
-            const snap = await getDocs(query(collection(db, "web_reports"), where("status", "==", "APPROVED")));
-            let res = null;
-            snap.forEach(d => { 
-                let m = d.data().students.find(s => s.id.toUpperCase() === stId);
-                if(m) res = { info: m, course: d.data().course };
-            });
-
-            const rDiv = document.getElementById('search-res');
-            if(res) {
-                rDiv.innerHTML = `<div class="p-6 bg-white border-t-8 border-indigo-950 rounded-2xl shadow mt-4 text-center">
-                    <p class="font-black text-indigo-900 italic text-xl">${res.info.name}</p>
-                    <p class="text-xs uppercase">${res.course}</p>
-                    <div class="mt-4 bg-indigo-50 p-4 inline-block rounded-xl border border-indigo-200">
-                        <span class="text-4xl font-black text-indigo-950">${res.info.grade}</span>
-                        <p class="text-[10px]">Buundo</p>
-                    </div>
-                </div>`;
-            } else { alert("ID Number lama helin ama wali lama ogolaan."); }
-        };
     </script>
 </head>
-<body class="bg-gray-100 font-sans">
-    
-    <nav class="bg-indigo-950 p-4 text-white flex justify-between border-b-8 border-yellow-500 shadow-xl items-center sticky top-0 z-[100]">
-        <h1 class="font-black text-2xl tracking-tighter flex items-center italic">KCTE <span class="bg-white text-indigo-950 px-1 ml-1 rounded">PORTAL</span></h1>
-        <div id="u-info" class="text-xs uppercase font-bold text-yellow-500">Gateway</div>
-        <button onclick="document.getElementById('std-m').classList.remove('hidden')" class="bg-yellow-500 text-indigo-900 px-6 py-2 rounded-full font-black text-xs italic tracking-tighter uppercase">HUBI GRADE-KA</button>
+<body class="bg-gray-100 min-h-screen text-slate-900">
+
+    <nav class="bg-indigo-950 p-6 flex justify-between items-center text-white border-b-[8px] border-yellow-500 sticky top-0 z-[100] shadow-2xl">
+        <h1 class="font-black text-2xl tracking-tighter uppercase italic leading-none italic italic">KCTE <span class="bg-white text-indigo-950 px-2 rounded-lg not-italic">PORTAL</span></h1>
+        <div id="nav-role" class="bg-indigo-900 px-6 py-1 rounded-full text-[10px] font-black uppercase italic border border-white/10 text-yellow-400">Offline Gateway</div>
+        <button onclick="document.getElementById('modal').classList.remove('hidden')" class="bg-yellow-500 text-indigo-900 px-6 py-2 rounded-full font-black text-[10px] hover:bg-white uppercase tracking-widest shadow-xl transform transition-all active:scale-95 italic">Check Natiijo</button>
     </nav>
 
     <!-- LOGIN -->
-    <div id="login-box" class="max-w-md mx-auto mt-20 p-10 bg-white rounded-3xl shadow-2xl border-t-8 border-indigo-950 animate-fade-in">
-        <h2 class="text-2xl font-black text-center text-indigo-950 uppercase mb-8">Login Panel</h2>
-        <input id="u" type="text" placeholder="Username (Staff)" class="w-full border-2 p-5 rounded-2xl mb-4 outline-none">
-        <input id="p" type="password" placeholder="••••" class="w-full border-2 p-5 rounded-2xl mb-8 outline-none">
-        <button onclick="login()" class="w-full bg-indigo-950 text-white py-5 rounded-2xl font-black text-xl hover:scale-95 shadow-xl transition-all">ENTER PORTAL</button>
-    </div>
-
-    <!-- DASHBOARD -->
-    <div id="main-ui" class="hidden p-8 max-w-5xl mx-auto">
-        <!-- TEACHER INPUT -->
-        <div id="teacher-ui" class="hidden animate-fade-in">
-            <div id="teacher-entry" class="hidden bg-white p-10 rounded-3xl shadow-xl border-t-8 border-green-500">
-                <h3 class="text-2xl font-black mb-8 uppercase italic underline decoration-yellow-400">📝 Geli Buundooyinka</h3>
-                <input id="c-name" type="text" placeholder="Magaca Maadada (EPSY 261)" class="w-full p-6 border rounded-2xl mb-6 font-bold text-xl uppercase tracking-widest bg-gray-50 outline-none focus:border-yellow-500">
-                <div class="grid grid-cols-4 gap-2 mb-6">
-                    <input id="st-id-input" placeholder="ID Number" class="border-2 p-4 rounded-xl">
-                    <input id="st-name-input" placeholder="Ardayga" class="border-2 p-4 rounded-xl">
-                    <input id="st-mark-input" placeholder="100%" class="border-2 p-4 rounded-xl text-center">
-                    <input id="st-grade-input" placeholder="Grade" class="border-2 p-4 rounded-xl text-center uppercase">
-                </div>
-                <button onclick="addStudentRow()" class="bg-blue-600 text-white w-full py-4 rounded-2xl font-black mb-6 hover:bg-blue-700 uppercase tracking-tighter shadow-lg transform active:scale-90 transition-all text-xs">+ Ku dar saf kale</button>
-                <div class="overflow-x-auto">
-                   <table class="w-full text-left text-xs mb-8">
-                       <thead class="bg-gray-100 italic"><tr><th>#</th><th>ID</th><th>Name</th><th>Score</th><th>Grade</th></tr></thead>
-                       <tbody id="st-tbody"></tbody>
-                   </table>
-                </div>
-                <button onclick="submitReport()" class="w-full bg-indigo-950 text-white py-6 rounded-3xl font-black text-3xl shadow-xl hover:bg-yellow-500 hover:text-indigo-950 transition-all uppercase italic italic shadow-indigo-100 active:scale-95">GUDBI NATIIJADA HADA</button>
-            </div>
+    <div id="login-div" class="max-w-sm mx-auto mt-20 p-10 bg-white rounded-[3.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] text-center animate-fade-in border-t-8 border-indigo-950">
+        <h2 class="text-4xl font-black mb-1 leading-none tracking-tighter text-indigo-950 uppercase italic italic">STAFF ACCESS</h2>
+        <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-10 border-b pb-4 italic decoration-yellow-400 decoration-2">Academic Control Gate</p>
+        <div class="space-y-4">
+            <input id="user" type="text" placeholder="Enter ID (Staff)" class="w-full bg-slate-50 border-2 p-5 rounded-2xl outline-none focus:border-yellow-500 font-bold uppercase tracking-widest shadow-inner italic">
+            <input id="pass" type="password" placeholder="Pass-key" class="w-full bg-slate-50 border-2 p-5 rounded-2xl outline-none focus:border-yellow-500 text-center font-bold tracking-widest mb-6">
+            <button onclick="login()" class="w-full bg-indigo-950 text-white p-5 rounded-3xl font-black text-xl hover:shadow-indigo-300 hover:scale-95 active:scale-90 transition-all uppercase italic">Diri xogta Portal-ka</button>
         </div>
-
-        <div id="audit-list" class="max-w-2xl mx-auto mt-10"></div>
     </div>
 
-    <!-- STUDENT MODAL -->
-    <div id="std-m" class="hidden fixed inset-0 bg-indigo-950/95 flex items-center justify-center p-8 z-[200]">
-        <div class="bg-slate-50 p-12 rounded-[4rem] w-full max-w-sm text-center border-t-[10px] border-yellow-500 shadow-2xl relative">
-            <h2 class="text-3xl font-black text-indigo-950 uppercase italic leading-none">Ogow <span class="text-indigo-400">Buundadaada</span></h2>
-            <p class="text-[9px] font-black text-slate-300 mt-2 mb-10 tracking-[0.4em]">Official KCTE Registry Check</p>
-            <input id="search-val" type="text" placeholder="E.g SRLD/140/15" class="w-full p-8 rounded-[3.5rem] border-2 bg-white text-3xl font-black text-center mb-4 uppercase focus:border-yellow-500 shadow-inner">
-            <button onclick="checkMyResult()" class="w-full bg-indigo-950 text-white p-7 rounded-[3rem] font-black text-2xl shadow-xl active:scale-95 transform transition hover:scale-105">BAADI (SEARCH)</button>
-            <div id="search-res"></div>
-            <button onclick="document.getElementById('std-m').classList.add('hidden')" class="mt-8 text-gray-400 text-xs font-black uppercase tracking-widest hover:text-red-600 transition underline decoration-2 decoration-gray-100">Exit ResultGate X</button>
+    <!-- MAIN APP DASHBOARD -->
+    <div id="dashboard" class="hidden p-8 lg:p-12 max-w-7xl mx-auto">
+        <h2 class="text-5xl font-black text-indigo-950 mb-12 italic underline underline-offset-8 decoration-yellow-500 uppercase tracking-tighter">WORKSPACE</h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <!-- TEACHER SECTION -->
+            <div id="teacher-ui" class="hidden space-y-6">
+                <div class="bg-white p-12 rounded-[4rem] shadow-2xl border border-slate-100">
+                    <h3 class="text-3xl font-black mb-10 uppercase italic italic">Soo-Geli Natiijooyinka</h3>
+                    <input id="course-name" type="text" placeholder="Maadada (Somali 101)" class="w-full border-2 bg-slate-50 p-6 rounded-3xl mb-8 outline-none font-black text-2xl uppercase tracking-tighter shadow-inner focus:border-yellow-500 italic underline underline-offset-4">
+                    <div class="bg-indigo-50/50 p-8 rounded-[3rem] border border-indigo-100 space-y-4">
+                         <div class="grid grid-cols-2 gap-2">
+                             <input id="st-name" placeholder="Student Full Name" class="p-4 border rounded-xl font-bold uppercase text-xs">
+                             <input id="st-id" placeholder="SRLD Number (ID)" class="p-4 border rounded-xl font-black text-indigo-950 text-xs">
+                         </div>
+                         <div class="grid grid-cols-3 gap-2">
+                             <input id="st-phone" placeholder="Phone No. (Sec)" class="p-4 border rounded-xl font-black text-blue-500 text-xs text-center">
+                             <input id="st-mark" placeholder="100% Mark" class="p-4 border rounded-xl font-black text-center text-xs">
+                             <input id="st-grade" placeholder="Letter Grade" class="p-4 border rounded-xl font-black text-red-600 text-center uppercase text-xs">
+                         </div>
+                         <button onclick="addStudent()" class="w-full bg-blue-700 text-white p-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-blue-200">+ Ku dar safka kale</button>
+                    </div>
+                    
+                    <div class="mt-8 border rounded-2xl max-h-40 overflow-auto bg-slate-50">
+                        <table class="w-full text-[10px] text-left">
+                            <thead class="bg-white italic sticky top-0 uppercase font-black"><tr><th class="p-2 border">#</th><th class="p-2 border">ID No</th><th class="p-2 border">Ardayga</th><th class="p-2 border">Verification</th><th class="p-2 border">Buundo</th></tr></thead>
+                            <tbody id="teacher-tbody"></tbody>
+                        </table>
+                    </div>
+                    <button onclick="submitToHOD()" class="mt-8 w-full bg-indigo-950 text-white p-7 rounded-[2.5rem] font-black text-2xl hover:scale-[1.03] transition-all uppercase italic shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] italic italic">XIRIIRI HOD HEAD-KA (GUDBI)</button>
+                </div>
+            </div>
+
+            <!-- ADMIN AUDIT LIST -->
+            <div id="list-area" class="w-full max-w-lg mx-auto"></div>
+        </div>
+    </div>
+
+    <!-- STUDENT MODAL: SEARCH (ID + PHONE) -->
+    <div id="modal" class="hidden fixed inset-0 bg-indigo-950/98 backdrop-blur-3xl flex items-center justify-center p-8 z-[1000] animate-fade-in">
+        <div class="bg-slate-50 p-16 rounded-[4.5rem] w-full max-w-lg shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-t-[20px] border-yellow-500 relative text-center">
+             <h2 class="text-4xl font-black text-indigo-950 uppercase italic leading-none mb-1 tracking-tighter">Oggoow Natiijada</h2>
+             <p class="text-[9px] font-black text-slate-300 mb-10 tracking-[0.4em] uppercase italic">Student Identity Check System</p>
+             <div class="space-y-4 mb-6">
+                <input id="std-id" type="text" placeholder="E.g SRLD/140/15" class="w-full bg-white border-2 border-slate-50 p-7 rounded-[2.5rem] font-black text-3xl text-center text-indigo-950 uppercase shadow-inner outline-none focus:border-yellow-500">
+                <input id="std-phone" type="text" placeholder="Enter Your Phone Number" class="w-full bg-white border-2 border-slate-50 p-7 rounded-[2.5rem] font-black text-2xl text-center text-blue-500 shadow-inner outline-none focus:border-yellow-500 italic tracking-widest italic italic">
+             </div>
+             <button onclick="searchResult()" class="w-full bg-indigo-950 text-white p-8 rounded-[3.5rem] font-black text-2xl shadow-xl hover:scale-105 active:scale-95 transform transition-all uppercase italic">Baaritaan iyo Raadin</button>
+             <div id="std-res"></div>
+             <button onclick="document.getElementById('modal').classList.add('hidden')" class="mt-8 text-gray-400 font-bold uppercase text-[9px] hover:text-red-500 border-b border-gray-100 pb-1 italic transition-colors">Xir/Close Student Result View</button>
         </div>
     </div>
 

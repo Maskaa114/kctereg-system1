@@ -94,7 +94,7 @@
 <main id="scr-signup" class="hidden max-w-md mx-auto px-5 py-14 fade">
   <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold">Akoon cusub · First time</p>
   <h2 class="font-display font-extrabold text-3xl mt-2">Samee furahaaga sirta ah</h2>
-  <p class="text-navy/65 text-sm mt-2">Waxaan ku helnay diiwaanka. Samee password si aan cid kale u arkin buundadaada.</p>
+  <p id="su-note" class="text-navy/65 text-sm mt-2"></p>
   <div class="mt-7 bg-white border border-navy/10 rounded-2xl p-6 space-y-4">
     <div>
       <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">ID</label>
@@ -142,6 +142,7 @@
 <main id="scr-result" class="hidden max-w-4xl mx-auto px-5 py-12 fade">
   <div class="flex items-center gap-3 mb-5 no-print">
     <button onclick="window.print()" class="font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Print / PDF</button>
+    <button onclick="refreshTranscript()" class="font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Cusboonaysii</button>
     <button onclick="signOutStudent()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] text-navy/50 hover:text-navy px-3 py-2">Ka bax</button>
   </div>
 
@@ -163,7 +164,7 @@
     <div class="px-3 sm:px-7 py-6 rule">
       <div id="tr-empty" class="hidden text-center py-10">
         <p class="font-display font-extrabold text-xl">Weli natiijo lama daabicin</p>
-        <p class="text-navy/60 text-sm mt-2 max-w-sm mx-auto">Koorsooyinkaagu wali way sugayaan ansixinta Xafiiska Diiwaangelinta. Ku soo noqo mar dambe.</p>
+        <p id="tr-empty-note" class="text-navy/60 text-sm mt-2 max-w-sm mx-auto"></p>
       </div>
       <table id="tr-table" class="w-full text-left text-sm">
         <thead>
@@ -175,6 +176,12 @@
         </thead>
         <tbody id="tr-body"></tbody>
       </table>
+
+      <div id="tr-pending" class="hidden mt-6 pt-5 border-t border-navy/10">
+        <p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">Sugaya ansixin · Awaiting approval</p>
+        <ul id="tr-pending-list" class="mt-3 space-y-1.5 text-sm"></ul>
+        <p class="text-[12px] text-navy/50 mt-3">Buundada koorsooyinkan ma muuqan doonto ilaa Xafiiska Diiwaangelintu ansixiyo.</p>
+      </div>
     </div>
 
     <div class="px-7 py-6 bg-navy-mist grid sm:grid-cols-3 gap-4 border-t border-navy/10">
@@ -280,9 +287,11 @@
     <p class="text-navy/60 text-sm mt-1">Haddii arday password-kiisa illoobo, tirtir akoonka si uu mar kale u sameysto.</p>
     <div class="flex gap-3 mt-4">
       <input id="acct-id" placeholder="SRLD/007/15" class="flex-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono uppercase">
+      <button onclick="findStudent()" class="border border-navy/20 hover:bg-navy hover:text-white font-semibold px-5 rounded-xl transition">Raadi</button>
       <button onclick="resetAccount()" class="bg-navy text-white font-semibold px-5 rounded-xl">Dib u deji</button>
     </div>
     <p id="acct-msg" class="text-[13px] font-medium mt-3 hidden"></p>
+    <div id="acct-hits" class="mt-4 space-y-2 text-sm"></div>
   </section>
 </main>
 
@@ -330,6 +339,17 @@ async function hash(sid, pass){
   return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 
+// Match IDs written slightly differently: SRLD/007/15, srld-007-15, SRLD 007 15, 00715
+const digitsOf = s => String(s||"").replace(/\D/g,"");
+function sameId(a, b){
+  const A = scrub(a), B = scrub(b);
+  if(!A || !B) return false;
+  if(A === B) return true;
+  const da = digitsOf(A), dbb = digitsOf(B);
+  if(da.length >= 4 && da === dbb) return true;
+  return Math.min(A.length, B.length) >= 5 && (A.endsWith(B) || B.endsWith(A));
+}
+
 const SCALE = [[90,"A",4],[85,"A-",3.75],[80,"B+",3.5],[75,"B",3],[70,"B-",2.75],
                [65,"C+",2.5],[60,"C",2],[55,"C-",1.75],[50,"D",1],[0,"F",0]];
 const gradeOf  = m => (SCALE.find(r => Number(m) >= r[0]) || SCALE.at(-1))[1];
@@ -363,14 +383,16 @@ window.checkId = async () => {
       $("li-p").value = ""; $("li-msg").classList.add("hidden");
       return go("scr-login");
     }
-    // No account yet — confirm the ID exists in college records
+    // No account yet — look the ID up in college records to prefill the name
     const snap = await getDocs(collection(db, MARKS));
     let found = null;
-    snap.forEach(d => (d.data().students||[]).forEach(s => { if(scrub(s.sid) === key) found = s; }));
-    if(!found) return msg("sid-msg","ID-gan lagama helin diiwaanka kulliyadda. La xidhiidh Xafiiska Diiwaangelinta.");
-    current = { key, sid: found.sid, name: found.name };
-    $("su-id").textContent = found.sid;
-    $("su-name").value     = found.name;
+    snap.forEach(d => (d.data().students||[]).forEach(s => { if(sameId(s.sid, key)) found = s; }));
+    current = { key, sid: found ? found.sid : raw.toUpperCase(), name: found ? found.name : "" };
+    $("su-id").textContent = current.sid;
+    $("su-name").value     = current.name;
+    $("su-note").textContent = found
+      ? "Waxaan ku helnay diiwaanka. Samee password si aan cid kale u arkin buundadaada."
+      : "ID-gan weli lagama helin buundo la gudbiyay. Waad samaysan kartaa akoon — natiijadu way soo muuqan doontaa marka macalinku gudbiyo oo Diiwaangelintu ansixiso.";
     go("scr-signup");
   } catch(e){ msg("sid-msg","Xidhiidhka ma shaqeynin. Isku day mar kale."); console.error(e); }
 };
@@ -403,16 +425,34 @@ window.studentLogin = async () => {
 
 window.signOutStudent = () => { current = null; $("sid").value=""; go("scr-home"); };
 
+window.refreshTranscript = () => showTranscript();
+
+const WAITING = { PENDING_HOD:"Macalinku wuu gudbiyay — sugaya Waaxda",
+                  PENDING_REG:"Waaxdu way ansixisay — sugaya Diiwaangelinta",
+                  RETURNED:"Waxaa lagu celiyay macalinka" };
+
 async function showTranscript(){
-  const snap = await getDocs(query(collection(db, MARKS), where("status","==","APPROVED")));
-  const rows = [];
+  const snap = await getDocs(collection(db, MARKS));
+  const rows = [], waiting = [];
   snap.forEach(d => {
     const c = d.data();
-    const me = (c.students||[]).find(s => scrub(s.sid) === current.key);
-    if(me) rows.push({ subject:c.subject, code:c.code||"—", sem:c.semester||"—",
-                       credit:Number(c.credit)||3, mark:Number(me.mark)||0, grade:me.grade||gradeOf(me.mark) });
+    const me = (c.students||[]).find(s => sameId(s.sid, current.key));
+    if(!me) return;
+    if(c.status === "APPROVED")
+      rows.push({ subject:c.subject, code:c.code||"—", sem:c.semester||"—",
+                  credit:Number(c.credit)||3, mark:Number(me.mark)||0, grade:me.grade||gradeOf(me.mark) });
+    else
+      waiting.push({ subject:c.subject, code:c.code||"", state:WAITING[c.status] || "Sugaya ansixin" });
   });
   rows.sort((a,b)=> String(a.sem).localeCompare(String(b.sem)) || a.subject.localeCompare(b.subject));
+
+  $("tr-pending").classList.toggle("hidden", waiting.length === 0);
+  $("tr-pending-list").innerHTML = waiting.map(w =>
+    `<li class="flex flex-wrap gap-2 items-baseline">
+       <span class="font-semibold">${esc(w.subject)}</span>
+       <span class="font-mono text-[11px] text-navy/45">${esc(w.code)}</span>
+       <span class="ml-auto text-[12px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">${esc(w.state)}</span>
+     </li>`).join("");
 
   $("tr-name").textContent  = current.name;
   $("tr-id").textContent    = current.sid;
@@ -420,6 +460,9 @@ async function showTranscript(){
   $("tr-date").textContent  = new Date().toLocaleDateString();
   $("tr-empty").classList.toggle("hidden", rows.length > 0);
   $("tr-table").classList.toggle("hidden", rows.length === 0);
+  $("tr-empty-note").textContent = waiting.length
+    ? "Koorsooyinkaagu way sugayaan ansixinta. Riix \"Cusboonaysii\" mar dambe."
+    : "ID-gaaga weli buundo lagama gudbin. La xidhiidh macalinka koorsada ama Xafiiska Diiwaangelinta.";
 
   let cr = 0, qp = 0, ms = 0;
   $("tr-body").innerHTML = rows.map((r,i) => {
@@ -678,6 +721,27 @@ window.returnSub = async id => {
   await updateDoc(doc(db, MARKS, id), { status:"RETURNED", note });
 };
 window.delSub = async id => { if(confirm("Ma hubtaa in la tirtiro?")) await deleteDoc(doc(db, MARKS, id)); };
+
+window.findStudent = async () => {
+  const key = scrub($("acct-id").value);
+  if(!key) return msg("acct-msg","Geli ID.");
+  const snap = await getDocs(collection(db, MARKS));
+  const hits = [];
+  snap.forEach(d => {
+    const c = d.data();
+    const me = (c.students||[]).find(s => sameId(s.sid, key));
+    if(me) hits.push({ sid:me.sid, name:me.name, subject:c.subject, mark:me.mark, grade:me.grade, status:c.status });
+  });
+  const acct = await getDoc(doc(db, STUDENTS, key));
+  msg("acct-msg", (acct.exists() ? "Akoon wuu jiraa. " : "Akoon lama sameyn weli. ") + hits.length + " koorso ayaa diiwaan gashan.", true);
+  $("acct-hits").innerHTML = hits.map(h => `<div class="flex flex-wrap gap-2 items-baseline border-b border-navy/5 py-1.5">
+      <span class="font-mono text-[11px] text-navy/50">${esc(h.sid)}</span>
+      <span class="font-semibold">${esc(h.name)}</span>
+      <span class="text-navy/60">${esc(h.subject)}</span>
+      <span class="ml-auto font-mono text-[11px]">${esc(h.mark)} · ${esc(h.grade)}</span>
+      <span class="text-[10px] font-mono uppercase tracking-[.12em] px-2 py-0.5 rounded-full ${(BADGE[h.status]||["","bg-navy/10"])[1]}">${(BADGE[h.status]||["—"])[0]}</span>
+    </div>`).join("");
+};
 
 window.resetAccount = async () => {
   const key = scrub($("acct-id").value);

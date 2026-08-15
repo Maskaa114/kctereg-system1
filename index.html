@@ -384,7 +384,8 @@ function sameId(a, b){
 const SCALE = [[90,"A",4],[85,"A-",3.75],[80,"B+",3.5],[75,"B",3],[70,"B-",2.75],
                [65,"C+",2.5],[60,"C",2],[55,"C-",1.75],[50,"D",1],[0,"F",0]];
 const gradeOf  = m => (SCALE.find(r => Number(m) >= r[0]) || SCALE.at(-1))[1];
-const pointOf  = g => (SCALE.find(r => r[1] === g) || SCALE.at(-1))[2];
+const pointOf  = g => { const r = SCALE.find(x => x[1] === String(g||"").toUpperCase().trim()); return r ? r[2] : null; };
+const pointFor = (g, m) => { const p = pointOf(g); return p !== null ? p : (SCALE.find(x => Number(m) >= x[0]) || SCALE.at(-1))[2]; };
 const GRADES   = SCALE.map(r => r[1]);
 
 function msg(id, text, ok=false){
@@ -481,7 +482,7 @@ async function showTranscript(){
     if(c.status === "APPROVED")
       rows.push({ subject:c.subject, code:c.code||"—", sem:c.semester||"—", dept:c.dept||"",
                   onList:me.sid, credit:Number(c.credit)||3,
-                  mark:Number(me.mark)||0, grade:me.grade||gradeOf(me.mark) });
+                  mark:String(me.mark ?? ""), grade:String(me.grade ?? "") });
     else
       waiting.push({ subject:c.subject, code:c.code||"", state:WAITING[c.status] || "Sugaya ansixin" });
   });
@@ -505,9 +506,10 @@ async function showTranscript(){
     ? "Koorsooyinkaagu way sugayaan ansixinta. Riix \"Cusboonaysii\" mar dambe."
     : "ID-gaaga weli buundo lagama gudbin. La xidhiidh macalinka koorsada ama Xafiiska Diiwaangelinta.";
 
-  let cr = 0, qp = 0, ms = 0;
+  let cr = 0, qp = 0, ms = 0, mn = 0;
   $("tr-body").innerHTML = rows.map((r,i) => {
-    const pt = pointOf(r.grade); cr += r.credit; qp += pt * r.credit; ms += r.mark;
+    const pt = pointFor(r.grade, r.mark); cr += r.credit; qp += pt * r.credit;
+    if(!isNaN(Number(r.mark)) && r.mark !== ""){ ms += Number(r.mark); mn++; }
     return `<tr class="border-b border-navy/5">
       <td class="py-2 font-mono text-[11px] text-navy/40">${i+1}</td>
       <td class="py-2 pr-2 font-semibold">${esc(r.subject)}
@@ -515,13 +517,13 @@ async function showTranscript(){
       <td class="py-2 pr-2 font-mono text-[12px] text-navy/60">${esc(r.code)}</td>
       <td class="py-2 pr-2 text-[12px] text-navy/60">${esc(r.sem)}</td>
       <td class="py-2 text-center font-mono">${r.credit}</td>
-      <td class="py-2 text-center font-mono">${r.mark}</td>
+      <td class="py-2 text-center font-mono">${esc(r.mark)}</td>
       <td class="py-2 text-center"><span class="font-display font-extrabold ${pt>=2?'text-navy':'text-red-600'}">${esc(r.grade)}</span></td>
       <td class="py-2 text-center font-mono text-navy/60">${pt.toFixed(2)}</td></tr>`;
   }).join("");
 
   $("tr-cr").textContent  = cr || "—";
-  $("tr-avg").textContent = rows.length ? (ms/rows.length).toFixed(1) : "—";
+  $("tr-avg").textContent = mn ? (ms/mn).toFixed(1) : "—";
   $("tr-gpa").textContent = cr ? (qp/cr).toFixed(2) : "—";
   go("scr-result");
 }
@@ -554,18 +556,19 @@ const render = () => {
       <td class="py-1 font-mono text-[11px] text-navy/40">${i+1}</td>
       <td class="py-1 pr-2"><input value="${esc(r.name)}" onchange="upd(${i},'name',this.value)" class="w-full bg-transparent border-b border-navy/10 py-1.5 focus:border-gold outline-none"></td>
       <td class="py-1 pr-2"><input value="${esc(r.sid)}" onchange="upd(${i},'sid',this.value)" class="w-full bg-transparent border-b border-navy/10 py-1.5 font-mono text-[12px] uppercase focus:border-gold outline-none"></td>
-      <td class="py-1 pr-2"><input type="number" min="0" max="100" value="${esc(r.mark)}" onchange="upd(${i},'mark',this.value)" class="w-20 bg-transparent border-b border-navy/10 py-1.5 font-mono focus:border-gold outline-none"></td>
-      <td class="py-1 pr-2"><select id="g${i}" onchange="upd(${i},'grade',this.value)" class="bg-transparent border-b border-navy/10 py-1.5 font-display font-extrabold focus:border-gold outline-none">
-        ${GRADES.map(g => `<option ${g===r.grade?"selected":""}>${g}</option>`).join("")}</select></td>
+      <td class="py-1 pr-2"><input type="text" value="${esc(r.mark)}" onchange="upd(${i},'mark',this.value)" class="w-20 bg-transparent border-b border-navy/10 py-1.5 font-mono focus:border-gold outline-none"></td>
+      <td class="py-1 pr-2"><input id="g${i}" type="text" value="${esc(r.grade)}" onchange="upd(${i},'grade',this.value)" class="w-16 bg-transparent border-b border-navy/10 py-1.5 font-display font-extrabold uppercase focus:border-gold outline-none"></td>
       <td class="py-1 text-center"><button onclick="delRow(${i})" class="text-navy/25 hover:text-red-600 text-lg leading-none">×</button></td>
     </tr>`).join("");
   $("row-count").textContent = buffer.length + " arday";
 };
 window.upd = (i, f, v) => {
-  buffer[i][f] = f === "sid" ? v.toUpperCase() : v;
-  if(f === "mark"){ buffer[i].grade = gradeOf(v); const s = $("g"+i); if(s) s.value = buffer[i].grade; }
+  buffer[i][f] = v.trim();                      // stored exactly as typed / as in the sheet
+  if(f === "mark" && !buffer[i].grade){         // only fills a grade that is missing
+    buffer[i].grade = gradeOf(v); const s = $("g"+i); if(s) s.value = buffer[i].grade;
+  }
 };
-window.addRow  = () => { buffer.push({name:"",sid:"",mark:"",grade:"F"}); render(); };
+window.addRow  = () => { buffer.push({name:"",sid:"",mark:"",grade:""}); render(); };
 window.delRow  = i  => { buffer.splice(i,1); render(); };
 window.clearRows = () => {
   buffer = []; $("f-paste").value = ""; $("f-file").value = ""; WB = null; GRID = [];
@@ -651,12 +654,16 @@ function fillCols(nCols){
 function autoSelect(){
   const h = Number($("m-header").value);
   const head = (h > -1 ? GRID[h] : []).map(c => c.toUpperCase());
-  const pick = re => head.findIndex(c => re.test(c));
+  const pick = (...patterns) => {           // first pattern wins, in priority order
+    for(const re of patterns){ const i = head.findIndex(c => re.test(c)); if(i > -1) return i; }
+    return -1;
+  };
   const set = (el, idx, fallback) => { $(el).value = String(idx > -1 ? idx : fallback); };
-  set("m-name",  pick(/NAME|MAGAC/),                        1);
-  set("m-sid",   pick(/\bID\b|SID|LAMBAR|ROLL|REG/),        2);
-  set("m-mark",  pick(/MARK|SCORE|BUUNDO|TOTAL|RESULT/),    3);
-  set("m-grade", pick(/GRADE|DARAJO/),                     -1);
+  set("m-name",  pick(/STUDENT.*NAME|FULL.*NAME|\bNAME\b|MAGAC/), 1);
+  set("m-sid",   pick(/\bID\b|ID.?NO|SID|LAMBAR|ROLL|REG.?NO/),   2);
+  // "TOTAL" / "out of 100" beats quiz, mid-term or assignment columns.
+  set("m-mark",  pick(/TOTAL|\b100\b|OUT.?OF/, /FINAL/, /MARK|SCORE|BUUNDO|RESULT/), 3);
+  set("m-grade", pick(/GRADE|DARAJO|XARAF/), -1);
 }
 window.onHeaderChange = () => { fillCols(Math.max(...GRID.map(r => r.length))); autoSelect(); previewMap(); };
 
@@ -667,11 +674,11 @@ function mappedRows(){
     const name = (r[ci.name] || "").trim();
     const sid  = (r[ci.sid]  || "").trim();
     if(!name && !sid) return null;
-    if(/^(total|average|celcelis)/i.test(name)) return null;
-    const mark = (r[ci.mark] || "").replace(/[^\d.]/g,"");
-    const g = ci.grade > -1 ? (r[ci.grade] || "").toUpperCase().trim() : "";
-    return { name:name.toUpperCase(), sid:sid.toUpperCase(), mark,
-             grade: GRADES.includes(g) ? g : gradeOf(mark) };
+    if(/^(total|average|celcelis)$/i.test(name)) return null;
+    // Values are copied from the sheet as written — nothing is rewritten or recalculated.
+    const mark  = (r[ci.mark] || "").trim();
+    const grade = ci.grade > -1 ? (r[ci.grade] || "").trim() : gradeOf(mark);
+    return { name, sid, mark, grade };
   }).filter(Boolean);
 }
 
@@ -679,10 +686,10 @@ window.previewMap = () => {
   const rows = mappedRows();
   const dupes = {}, seen = {};
   rows.forEach(r => { const k = scrub(r.sid); if(seen[k]) dupes[k] = true; seen[k] = 1; });
-  const bad = rows.filter(r => scrub(r.sid).length < 3 || r.mark === "" || isNaN(r.mark)).length;
+  const blank = rows.filter(r => !r.mark || !scrub(r.sid)).length;
   $("m-preview").innerHTML = `
     <p class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/50 mb-2">
-      ${rows.length} saf · ${Object.keys(dupes).length} ID laba-laab ah · ${bad} saf oo aan dhamaystirnayn</p>
+      ${rows.length} saf · ${Object.keys(dupes).length} ID laba-laab ah · ${blank} saf oo maran</p>
     <table class="w-full text-[12px] min-w-[420px]">
       <thead><tr class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/40 border-b border-navy/15 text-left">
         <th class="py-1">Magaca</th><th class="py-1">ID</th><th class="py-1 text-center">Mark</th><th class="py-1 text-center">Grade</th></tr></thead>
@@ -701,63 +708,14 @@ window.applyMapping = () => {
   $("mapper").classList.add("hidden");
 };
 
-// Find a header row, otherwise fall back to guessing column by column.
-function gridToRows(grid){
-  const find = (cells, re) => cells.findIndex(c => re.test(c));
-  let h = -1, col = {};
-  for(let i = 0; i < Math.min(grid.length, 8); i++){
-    const c = grid[i];
-    const nameC  = find(c, /^(full\s*)?(name|magac)/i);
-    const idC    = c.findIndex(x => /(student\s*)?(id|sid|lambar)/i.test(x));
-    if(nameC > -1 && idC > -1){
-      h = i;
-      col = { name:nameC, sid:idC,
-              mark: find(c, /mark|score|buundo|total|result|natiij|point/i),
-              grade: find(c, /grade|darajo/i) };
-      break;
-    }
-  }
-  const out = [];
-  if(h > -1){
-    grid.slice(h + 1).forEach(c => {
-      const name = (c[col.name] || "").trim();
-      const sid  = (c[col.sid]  || "").trim();
-      if(!name && !sid) return;
-      if(/^(total|average|celcelis)/i.test(name)) return;
-      let mark = col.mark > -1 ? (c[col.mark] || "").replace(/[^\d.]/g,"") : "";
-      if(mark === "" ) mark = guessMark(c, sid);
-      const g = col.grade > -1 && c[col.grade] ? c[col.grade].toUpperCase().trim() : gradeOf(mark);
-      out.push({ name:name.toUpperCase(), sid:sid.toUpperCase(), mark,
-                 grade: GRADES.includes(g) ? g : gradeOf(mark) });
-    });
-  } else {
-    grid.forEach(c => { const r = cellsToRow(c); if(r) out.push(r); });
-  }
-  return out;
-}
-const guessMark = (cells, sid) => {
-  for(let i = cells.length - 1; i >= 0; i--){
-    const v = cells[i]; const n = Number(v);
-    if(v !== sid && v !== "" && !isNaN(n) && n >= 0 && n <= 100 && !/[A-Z]/i.test(v)) return v;
-  }
-  return "";
-};
-function cellsToRow(cells){
-  const c = cells.filter(Boolean);
-  if(c.length < 2) return null;
-  if(/name|magac/i.test(c.join(" ")) && !/\d/.test(c.join(""))) return null;
-  const sid  = c.find(x => /[A-Z]/i.test(x) && /\d/.test(x)) || "";
-  const mark = guessMark(c, sid);
-  const name = c.filter(x => x !== sid && x !== mark && /[A-Z]{2,}/i.test(x) && !/^\d+$/.test(x)).join(" ");
-  if(!name && !sid) return null;
-  return { name:name.toUpperCase(), sid:sid.toUpperCase(), mark, grade:gradeOf(mark) };
-}
-
+// Paste fallback: the pasted grid goes through the same confirm-the-columns panel,
+// so nothing is guessed behind the teacher's back.
 window.parsePaste = raw => {
-  const grid = raw.split("\n").map(l => l.split(/\t|,|;|\s{2,}/).map(c => c.trim()))
-                  .filter(r => r.some(c => c !== ""));
-  const out = gridToRows(grid);
-  if(out.length){ buffer = out; render(); }
+  GRID = raw.split("\n").map(l => l.split(/\t|,|;|\s{2,}/).map(c => c.trim()))
+            .filter(r => r.some(c => c !== ""));
+  if(GRID.length < 2) return;
+  buildMapper();
+  msg("file-msg", GRID.length + " saf la soo dhuujiyay. Xaqiiji tiirarka hoos.", true);
 };
 
 window.submitBatch = async () => {
@@ -765,8 +723,8 @@ window.submitBatch = async () => {
   const rows = buffer.filter(r => r.name && r.sid);
   if(!subject) return alert("Geli magaca koorsada.");
   if(!rows.length) return alert("Ma jiro arday la geliyay (magac + ID).");
-  const bad = rows.find(r => r.mark === "" || isNaN(r.mark) || r.mark < 0 || r.mark > 100);
-  if(bad) return alert("Buundo khaldan: " + bad.name + " — waa inay noqotaa 0–100.");
+  const odd = rows.filter(r => r.mark === "" || isNaN(Number(r.mark)) || Number(r.mark) < 0 || Number(r.mark) > 100);
+  if(odd.length && !confirm(odd.length + " saf ayaa leh buundo aan ahayn 0–100 (tusaale: " + odd[0].name + " = " + odd[0].mark + "). Sii wad sidii Excel-ku ahaa?")) return;
   const seen = {};
   for(const r of rows){
     const k = scrub(r.sid);
@@ -779,7 +737,8 @@ window.submitBatch = async () => {
       subject: subject.toUpperCase(), code: $("f-code").value.trim().toUpperCase(),
       credit: Number($("f-credit").value) || 3, semester: $("f-sem").value.trim(),
       dept: $("f-dept").value.trim().toUpperCase(),
-      instructor: USER, students: rows.map(r => ({ name:r.name, sid:r.sid, mark:Number(r.mark), grade:r.grade })),
+      // Student rows are written exactly as they appear in the uploaded sheet.
+      instructor: USER, students: rows.map(r => ({ name:r.name, sid:r.sid, mark:r.mark, grade:r.grade })),
       status: "PENDING_HOD", note: "", createdAt: new Date().toISOString()
     });
     alert("Waa la gudbiyay. Waxay sugaysaa ansixinta Madaxa Waaxda.");

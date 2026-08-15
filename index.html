@@ -255,9 +255,9 @@
           <select id="f-sheet" onchange="loadSheet(this.value)" class="hidden bg-navy/[.04] border border-navy/10 rounded-lg px-3 py-2 font-mono text-[12px]"></select>
         </div>
 
-        <div id="mapper" class="hidden mt-4 border border-navy/15 rounded-2xl p-5 bg-navy-mist/60">
-          <p class="font-display font-extrabold text-lg">Faylkaaga sida uu yahay</p>
-          <p class="text-[12px] text-navy/60 mt-1">Dhagsii madaxa tiirka si aad u calaamadiso: Magaca → ID → Mark → Grade → laga saaro.</p>
+        <details id="mapper" class="hidden mt-4 border border-navy/15 rounded-2xl p-5 bg-navy-mist/60">
+          <summary class="cursor-pointer font-display font-extrabold text-lg">Tiirarka faylka <span class="font-sans font-normal text-[12px] text-navy/55">— fur haddii tiir khaldan yahay</span></summary>
+          <p class="text-[12px] text-navy/60 mt-2">Dhagsii madaxa tiirka si aad u beddesho: Magaca → ID → Mark → Grade → laga saaro.</p>
           <div id="m-raw" class="overflow-x-auto mt-4 bg-white rounded-xl border border-navy/10"></div>
           <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
             <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Safka header</label>
@@ -272,8 +272,7 @@
               <select id="m-grade" onchange="previewMap()" class="w-full mt-1 bg-white border border-navy/15 rounded-lg px-2 py-2 text-[12px]"></select></div>
           </div>
           <div id="m-preview" class="overflow-x-auto mt-4"></div>
-          <button onclick="applyMapping()" class="w-full mt-4 bg-navy hover:bg-navy-soft text-white font-semibold py-3 rounded-xl transition">Soo saar liiska →</button>
-        </div>
+        </details>
         <details class="mt-3"><summary class="cursor-pointer font-mono text-[10px] uppercase tracking-[.15em] text-navy/45">Ama copy/paste ka samee Excel</summary>
           <textarea id="f-paste" oninput="parsePaste(this.value)" rows="4" placeholder="Xasan Cali&#9;SRLD/007/15&#9;87"
             class="w-full mt-2 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono text-xs"></textarea>
@@ -610,7 +609,6 @@ window.loadSheet = name => {
     .filter(r => r.some(c => c !== ""));
   if(!GRID.length) return msg("file-msg","Sheet-kan wuu maran yahay.");
   buildMapper();
-  msg("file-msg","Sheet \"" + name + "\" — " + GRID.length + " saf. Xaqiiji tiirarka hoos.", true);
 };
 
 /* Column mapping: nothing is guessed silently — the teacher confirms it. */
@@ -639,8 +637,9 @@ function buildMapper(){
   hdr.value = String(guess);
   fillCols(nCols);
   autoSelect();
-  previewMap();
+  previewMap();                       // loads the rows straight into the table below
   $("mapper").classList.remove("hidden");
+  applyMapping();
 }
 
 function fillCols(nCols){
@@ -652,19 +651,62 @@ function fillCols(nCols){
   ROLES.forEach(r => { $(r.el).innerHTML = opts; });
 }
 
+// Work out which column is which — headers first, then the shape of the data itself.
+function colStats(){
+  const h = Number($("m-header").value);
+  const data = GRID.slice(h + 1, h + 41);
+  const nCols = Math.max(...GRID.map(r => r.length));
+  return Array.from({length:nCols}, (_,i) => {
+    const cells = data.map(r => String(r[i] ?? "").trim());
+    const filled = cells.filter(Boolean);
+    const n = filled.length || 1;
+    const nums = filled.map(Number).filter(v => !isNaN(v));
+    const serial = nums.length > 2 && nums.every((v,k) => k === 0 || v === nums[k-1] + 1);
+    return {
+      i, filled: filled.length,
+      alpha: filled.filter(c => /^[A-Za-z][A-Za-z.'\s-]{2,}$/.test(c)).length / n,
+      id:    filled.filter(c => /[A-Za-z]/.test(c) && /\d/.test(c)).length / n,
+      grade: filled.filter(c => /^[A-F][+-]?$/i.test(c)).length / n,
+      num:   nums.length / n,
+      mean:  nums.length ? nums.reduce((a,b)=>a+b,0) / nums.length : 0,
+      max:   nums.length ? Math.max(...nums) : 0,
+      serial
+    };
+  });
+}
+
 function autoSelect(){
   const h = Number($("m-header").value);
-  const head = (h > -1 ? GRID[h] : []).map(c => c.toUpperCase());
-  const pick = (...patterns) => {
+  const head = (h > -1 ? GRID[h] : []).map(c => String(c).toUpperCase());
+  const byHead = (...patterns) => {
     for(const re of patterns){ const i = head.findIndex(c => re.test(c)); if(i > -1) return i; }
     return -1;
   };
-  const set = (el, idx) => { $(el).value = String(idx); };
-  set("m-name",  pick(/STUDENT.*NAME|FULL.*NAME|\bNAME\b|MAGAC/));
-  set("m-sid",   pick(/\bID\b|ID.?NO|SID|LAMBAR|ROLL|REG.?NO/));
-  // TOTAL / out of 100 wins over quiz, mid-term or assignment columns.
-  set("m-mark",  pick(/TOTAL|\b100\b|OUT.?OF/, /FINAL/, /MARK|SCORE|BUUNDO|RESULT/));
-  set("m-grade", pick(/GRADE|DARAJO|XARAF/));
+  const st = colStats();
+  const best = (pred, rank) => {
+    const c = st.filter(pred).sort((a,b) => rank(b) - rank(a))[0];
+    return c ? c.i : -1;
+  };
+
+  let sid = byHead(/\bID\b|ID.?NO|SID|LAMBAR|ROLL|REG.?NO/);
+  if(sid < 0) sid = best(c => c.id > 0.5 && !c.serial, c => c.id);
+
+  let name = byHead(/STUDENT.*NAME|FULL.*NAME|\bNAME\b|MAGAC/);
+  if(name < 0) name = best(c => c.i !== sid && c.alpha > 0.5, c => c.alpha);
+
+  let grade = byHead(/GRADE|DARAJO|XARAF/);
+  if(grade < 0) grade = best(c => c.i !== sid && c.grade > 0.6, c => c.grade);
+
+  // TOTAL / out of 100 wins; otherwise the fullest numeric column that isn't the row number.
+  let mark = byHead(/TOTAL|\b100\b|OUT.?OF/, /FINAL/, /MARK|SCORE|BUUNDO|RESULT|NATIIJ/);
+  if(mark < 0) mark = best(c => c.num > 0.6 && !c.serial && c.i !== sid && c.i !== grade && c.max <= 100,
+                           c => c.mean * 100 + c.filled);
+  if(mark < 0) mark = best(c => c.num > 0.6 && !c.serial && c.i !== sid && c.i !== grade, c => c.mean);
+
+  $("m-name").value  = String(name);
+  $("m-sid").value   = String(sid);
+  $("m-mark").value  = String(mark);
+  $("m-grade").value = String(grade);
 }
 window.onHeaderChange = () => { fillCols(Math.max(...GRID.map(r => r.length))); autoSelect(); previewMap(); };
 
@@ -715,32 +757,21 @@ function mappedRows(){
 window.previewMap = () => {
   renderRaw();
   const rows = mappedRows();
+  buffer = rows; render();                       // the table below always mirrors the sheet
   const dupes = {}, seen = {};
   rows.forEach(r => { const k = scrub(r.sid); if(seen[k]) dupes[k] = true; seen[k] = 1; });
   const noMark = rows.filter(r => !r.mark).length;
   $("m-preview").innerHTML = `
-    <p class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/50 mb-2">
-      ${rows.length} saf · ${Object.keys(dupes).length} ID laba-laab · ${noMark} saf oo buundo la&#39;aan ah</p>
-    <table class="w-full text-[12px] min-w-[420px]">
-      <thead><tr class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/40 border-b border-navy/15 text-left">
-        <th class="py-1">Magaca</th><th class="py-1">ID</th><th class="py-1 text-center">Mark</th><th class="py-1 text-center">Grade</th></tr></thead>
-      <tbody>${rows.slice(0,5).map(r => `<tr class="border-b border-navy/5">
-        <td class="py-1">${esc(r.name)}</td><td class="py-1 font-mono">${esc(r.sid)}</td>
-        <td class="py-1 text-center font-mono">${esc(r.mark)}</td><td class="py-1 text-center font-semibold">${esc(r.grade)}</td>
-      </tr>`).join("")}</tbody></table>
-    ${rows.length > 5 ? `<p class="text-[11px] text-navy/40 mt-2">…iyo ${rows.length - 5} saf oo kale</p>` : ""}`;
+    <p class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/50">
+      ${rows.length} saf · ${Object.keys(dupes).length} ID laba-laab · ${noMark} saf oo buundo la&#39;aan ah</p>`;
 };
 
 window.applyMapping = () => {
-  if(+$("m-name").value < 0 || +$("m-sid").value < 0 || +$("m-mark").value < 0)
-    return msg("file-msg","Calaamadi tiirarka Magaca, ID iyo Mark ka hor.");
   const rows = mappedRows();
   if(!rows.length) return msg("file-msg","Wax saf ah lagama helin. Beddel safka header ama tiirarka.");
-  buffer = rows; render();
   const noGrade = rows.filter(r => !r.grade).length;
-  msg("file-msg", rows.length + " arday ayaa liiska galay sidii Excel-ku ahaa."
-      + (noGrade ? " " + noGrade + " saf ma laha xaraf Grade ah — calaamadi tiirka Grade haddii uu faylka ku jiro." : ""), true);
-  $("mapper").classList.add("hidden");
+  msg("file-msg", rows.length + " arday · sidii Excel-ku ahaa."
+      + (noGrade ? " " + noGrade + " saf ma laha xaraf Grade ah." : ""), true);
 };
 
 // Paste fallback: the pasted grid goes through the same confirm-the-columns panel,

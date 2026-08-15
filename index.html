@@ -103,6 +103,7 @@
     <div>
       <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Magaca / Full name</label>
       <input id="su-name" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-semibold uppercase">
+      <p id="su-hint" class="font-mono text-[11px] text-navy/45 mt-1.5"></p>
     </div>
     <div>
       <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Password (ugu yaraan 6 xaraf)</label>
@@ -339,15 +340,12 @@ async function hash(sid, pass){
   return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 
-// Match IDs written slightly differently: SRLD/007/15, srld-007-15, SRLD 007 15, 00715
-const digitsOf = s => String(s||"").replace(/\D/g,"");
+// ID matching. Punctuation, spacing and case are ignored — BRLD/010/15, brld-010-15
+// and "BRLD 010 15" are the same student. Everything else must match exactly, so
+// ENRLD/010/15 and BRLD/010/15 are two different people and never see each other's marks.
 function sameId(a, b){
   const A = scrub(a), B = scrub(b);
-  if(!A || !B) return false;
-  if(A === B) return true;
-  const da = digitsOf(A), dbb = digitsOf(B);
-  if(da.length >= 4 && da === dbb) return true;
-  return Math.min(A.length, B.length) >= 5 && (A.endsWith(B) || B.endsWith(A));
+  return !!A && A === B;
 }
 
 const SCALE = [[90,"A",4],[85,"A-",3.75],[80,"B+",3.5],[75,"B",3],[70,"B-",2.75],
@@ -383,31 +381,43 @@ window.checkId = async () => {
       $("li-p").value = ""; $("li-msg").classList.add("hidden");
       return go("scr-login");
     }
-    // No account yet — look the ID up in college records to prefill the name
+    // No account yet — look the ID up in college records
     const snap = await getDocs(collection(db, MARKS));
     let found = null;
     snap.forEach(d => (d.data().students||[]).forEach(s => { if(sameId(s.sid, key)) found = s; }));
-    current = { key, sid: found ? found.sid : raw.toUpperCase(), name: found ? found.name : "" };
+    current = { key, sid: found ? found.sid : raw.toUpperCase(), name:"", record: found ? found.name : null };
     $("su-id").textContent = current.sid;
-    $("su-name").value     = current.name;
+    $("su-name").value     = "";
     $("su-note").textContent = found
-      ? "Waxaan ku helnay diiwaanka. Samee password si aan cid kale u arkin buundadaada."
-      : "ID-gan weli lagama helin buundo la gudbiyay. Waad samaysan kartaa akoon — natiijadu way soo muuqan doontaa marka macalinku gudbiyo oo Diiwaangelintu ansixiso.";
+      ? "ID-gan waa diiwaan gashan yahay. Xaqiiji naftaada: qor magacaaga sida uu ugu qoran yahay diiwaanka macalinka."
+      : "ID-gan weli buundo lagama gudbin. Waad samaysan kartaa akoon — natiijadu way soo muuqan doontaa marka macalinku gudbiyo oo Diiwaangelintu ansixiso.";
+    $("su-hint").textContent = found ? "Tilmaan: " + hintName(found.name) : "";
     go("scr-signup");
   } catch(e){ msg("sid-msg","Xidhiidhka ma shaqeynin. Isku day mar kale."); console.error(e); }
 };
 
+const nameTokens = n => String(n||"").toUpperCase().replace(/[^A-Z\s]/g," ").split(/\s+/).filter(t => t.length > 1);
+const hintName = n => nameTokens(n).map(t => t[0] + "•".repeat(Math.max(t.length-1,1))).join(" ");
+function nameMatches(typed, record){
+  const a = nameTokens(typed), b = nameTokens(record);
+  if(a.length < 2) return false;
+  return a.every(t => b.includes(t));
+}
+
 window.createAccount = async () => {
   const name = $("su-name").value.trim(), p1 = $("su-p1").value, p2 = $("su-p2").value;
   if(!name) return msg("su-msg","Magaca waa banaan yahay.");
+  if(current.record && !nameMatches(name, current.record))
+    return msg("su-msg","Magacan kuma habboona ID-gan. Qor magacaaga saddexley sida uu ugu qoran yahay diiwaanka.");
   if(p1.length < 6) return msg("su-msg","Password-ku waa inuu ka koobnaadaa ugu yaraan 6 xaraf.");
   if(p1 !== p2)     return msg("su-msg","Labada password isku mid ma aha.");
   try {
+    const finalName = (current.record || name).toUpperCase();
     await setDoc(doc(db, STUDENTS, current.key), {
-      sid: current.sid, name: name.toUpperCase(),
+      sid: current.sid, name: finalName,
       passHash: await hash(current.key, p1), createdAt: new Date().toISOString()
     });
-    current.name = name.toUpperCase();
+    current.name = finalName;
     await showTranscript();
   } catch(e){ msg("su-msg","Akoonka lama abuuri karin hadda."); console.error(e); }
 };
@@ -636,6 +646,13 @@ window.submitBatch = async () => {
   if(!rows.length) return alert("Ma jiro arday la geliyay (magac + ID).");
   const bad = rows.find(r => r.mark === "" || isNaN(r.mark) || r.mark < 0 || r.mark > 100);
   if(bad) return alert("Buundo khaldan: " + bad.name + " — waa inay noqotaa 0–100.");
+  const seen = {};
+  for(const r of rows){
+    const k = scrub(r.sid);
+    if(k.length < 3) return alert("ID khaldan: " + r.name + " — ID-gu waa inuu buuxaa oo sax ah.");
+    if(seen[k]) return alert("ID laba jeer ku soo noqday: " + r.sid + " (" + seen[k] + " iyo " + r.name + "). Saxi Excel-ka.");
+    seen[k] = r.name;
+  }
   try {
     await addDoc(collection(db, MARKS), {
       subject: subject.toUpperCase(), code: $("f-code").value.trim().toUpperCase(),

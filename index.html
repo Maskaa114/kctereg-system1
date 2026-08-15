@@ -232,6 +232,8 @@
           <input id="f-credit" type="number" min="1" max="10" value="3" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono"></div>
         <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Semester / Year</label>
           <input id="f-sem" placeholder="Sem 1 · 2025/26" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3"></div>
+        <div class="sm:col-span-2 lg:col-span-4"><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Waaxda / Department</label>
+          <input id="f-dept" placeholder="Natural Science" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3"></div>
       </div>
 
       <div class="mt-6">
@@ -279,6 +281,10 @@
 
   <!-- APPROVALS / REVIEW -->
   <section id="ui-audit" class="hidden">
+    <div id="audit-tabs" class="hidden flex gap-2 mb-5">
+      <button onclick="setView('QUEUE')" id="tab-QUEUE" class="font-mono text-[10px] uppercase tracking-[.15em] px-4 py-2 rounded-md border border-navy/20">Sugaya</button>
+      <button onclick="setView('ALL')" id="tab-ALL" class="font-mono text-[10px] uppercase tracking-[.15em] px-4 py-2 rounded-md border border-navy/20">Dhammaan diiwaanka</button>
+    </div>
     <div id="audit-list" class="space-y-5"></div>
   </section>
 
@@ -381,34 +387,28 @@ window.checkId = async () => {
       $("li-p").value = ""; $("li-msg").classList.add("hidden");
       return go("scr-login");
     }
-    // No account yet — look the ID up in college records
+    // No account yet — look the ID up in the submitted Excel lists
     const snap = await getDocs(collection(db, MARKS));
-    let found = null;
-    snap.forEach(d => (d.data().students||[]).forEach(s => { if(sameId(s.sid, key)) found = s; }));
-    current = { key, sid: found ? found.sid : raw.toUpperCase(), name:"", record: found ? found.name : null };
+    let found = null, courses = 0;
+    snap.forEach(d => (d.data().students||[]).forEach(s => {
+      if(sameId(s.sid, key)){ found = found || s; courses++; }
+    }));
+    current = { key, sid: found ? found.sid : raw.toUpperCase(), name: found ? found.name : "", record: found ? found.name : null };
     $("su-id").textContent = current.sid;
-    $("su-name").value     = "";
+    $("su-name").value     = current.name;
+    $("su-name").readOnly  = !!found;
+    $("su-name").classList.toggle("opacity-70", !!found);
     $("su-note").textContent = found
-      ? "ID-gan waa diiwaan gashan yahay. Xaqiiji naftaada: qor magacaaga sida uu ugu qoran yahay diiwaanka macalinka."
-      : "ID-gan weli buundo lagama gudbin. Waad samaysan kartaa akoon — natiijadu way soo muuqan doontaa marka macalinku gudbiyo oo Diiwaangelintu ansixiso.";
-    $("su-hint").textContent = found ? "Tilmaan: " + hintName(found.name) : "";
+      ? "Waxaa lagu helay liiska macalinka. Samee password kaaga gaar ah — adiga oo keliya ayaa arki doona buundadaada."
+      : "ID-gan liiska Excel ee la gudbiyay kuma jiro. Hubi lambarka, ama la xidhiidh macalinka koorsada / Xafiiska Diiwaangelinta si laguu daro.";
+    $("su-hint").textContent = found ? courses + " koorso ayaa ID-gan lagu diiwaan geliyay." : "";
     go("scr-signup");
   } catch(e){ msg("sid-msg","Xidhiidhka ma shaqeynin. Isku day mar kale."); console.error(e); }
 };
 
-const nameTokens = n => String(n||"").toUpperCase().replace(/[^A-Z\s]/g," ").split(/\s+/).filter(t => t.length > 1);
-const hintName = n => nameTokens(n).map(t => t[0] + "•".repeat(Math.max(t.length-1,1))).join(" ");
-function nameMatches(typed, record){
-  const a = nameTokens(typed), b = nameTokens(record);
-  if(a.length < 2) return false;
-  return a.every(t => b.includes(t));
-}
-
 window.createAccount = async () => {
   const name = $("su-name").value.trim(), p1 = $("su-p1").value, p2 = $("su-p2").value;
   if(!name) return msg("su-msg","Magaca waa banaan yahay.");
-  if(current.record && !nameMatches(name, current.record))
-    return msg("su-msg","Magacan kuma habboona ID-gan. Qor magacaaga saddexley sida uu ugu qoran yahay diiwaanka.");
   if(p1.length < 6) return msg("su-msg","Password-ku waa inuu ka koobnaadaa ugu yaraan 6 xaraf.");
   if(p1 !== p2)     return msg("su-msg","Labada password isku mid ma aha.");
   try {
@@ -449,8 +449,9 @@ async function showTranscript(){
     const me = (c.students||[]).find(s => sameId(s.sid, current.key));
     if(!me) return;
     if(c.status === "APPROVED")
-      rows.push({ subject:c.subject, code:c.code||"—", sem:c.semester||"—",
-                  credit:Number(c.credit)||3, mark:Number(me.mark)||0, grade:me.grade||gradeOf(me.mark) });
+      rows.push({ subject:c.subject, code:c.code||"—", sem:c.semester||"—", dept:c.dept||"",
+                  onList:me.sid, credit:Number(c.credit)||3,
+                  mark:Number(me.mark)||0, grade:me.grade||gradeOf(me.mark) });
     else
       waiting.push({ subject:c.subject, code:c.code||"", state:WAITING[c.status] || "Sugaya ansixin" });
   });
@@ -479,7 +480,8 @@ async function showTranscript(){
     const pt = pointOf(r.grade); cr += r.credit; qp += pt * r.credit; ms += r.mark;
     return `<tr class="border-b border-navy/5">
       <td class="py-2 font-mono text-[11px] text-navy/40">${i+1}</td>
-      <td class="py-2 pr-2 font-semibold">${esc(r.subject)}</td>
+      <td class="py-2 pr-2 font-semibold">${esc(r.subject)}
+        <span class="block font-normal font-mono text-[10px] text-navy/35">${esc(r.dept)} ${r.dept ? "·" : ""} liiska: ${esc(r.onList)}</span></td>
       <td class="py-2 pr-2 font-mono text-[12px] text-navy/60">${esc(r.code)}</td>
       <td class="py-2 pr-2 text-[12px] text-navy/60">${esc(r.sem)}</td>
       <td class="py-2 text-center font-mono">${r.credit}</td>
@@ -510,7 +512,7 @@ window.staffLogin = () => {
                             : ROLE === "REG" ? "Ansixinta kama dambeysta ah · Registrar" : "Kormeerka guud";
   go("scr-staff");
   if(ROLE === "TEACHER"){ $("ui-teacher").classList.remove("hidden"); addRow(); watchTeacher(); }
-  else { $("ui-audit").classList.remove("hidden"); watchAudit(); }
+  else { $("ui-audit").classList.remove("hidden"); if(ROLE === "REG"){ $("audit-tabs").classList.remove("hidden"); setView("QUEUE"); } else watchAudit(); }
   if(ROLE === "REG") $("ui-accounts").classList.remove("hidden");
 };
 
@@ -657,11 +659,12 @@ window.submitBatch = async () => {
     await addDoc(collection(db, MARKS), {
       subject: subject.toUpperCase(), code: $("f-code").value.trim().toUpperCase(),
       credit: Number($("f-credit").value) || 3, semester: $("f-sem").value.trim(),
+      dept: $("f-dept").value.trim().toUpperCase(),
       instructor: USER, students: rows.map(r => ({ name:r.name, sid:r.sid, mark:Number(r.mark), grade:r.grade })),
       status: "PENDING_HOD", note: "", createdAt: new Date().toISOString()
     });
     alert("Waa la gudbiyay. Waxay sugaysaa ansixinta Madaxa Waaxda.");
-    $("f-subject").value = ""; $("f-code").value = ""; $("f-sem").value = "";
+    $("f-subject").value = ""; $("f-code").value = ""; $("f-sem").value = ""; $("f-dept").value = "";
     clearRows();
   } catch(e){ alert("Gudbintu ma guuleysan. Hubi xidhiidhka."); console.error(e); }
 };
@@ -684,7 +687,7 @@ function card(id, d, actions){
       <div>
         <h4 class="font-display font-extrabold text-xl">${esc(d.subject)} <span class="font-mono text-[12px] text-navy/40">${esc(d.code||"")}</span></h4>
         <p class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/45 mt-1">
-          ${esc(d.instructor)} · ${esc(d.semester||"—")} · ${(d.students||[]).length} arday · ${d.credit||3} cr</p>
+          ${esc(d.instructor)} · ${esc(d.dept||"—")} · ${esc(d.semester||"—")} · ${(d.students||[]).length} arday · ${d.credit||3} cr</p>
       </div>
       <span class="ml-auto text-[10px] font-mono uppercase tracking-[.12em] px-2.5 py-1 rounded-full ${b[1]}">${b[0]}</span>
     </div>
@@ -710,10 +713,21 @@ function watchTeacher(){
       : `<p class="text-navy/50 text-sm">Weli waxba ma gudbin.</p>`;
   }));
 }
+let VIEW = "QUEUE";
+window.setView = v => {
+  VIEW = v;
+  ["QUEUE","ALL"].forEach(k => $("tab-"+k).className =
+    "font-mono text-[10px] uppercase tracking-[.15em] px-4 py-2 rounded-md border " +
+    (k === v ? "bg-navy text-white border-navy" : "border-navy/20 hover:bg-navy/5"));
+  unsub.forEach(u => u()); unsub = [];
+  watchAudit();
+};
+
 function watchAudit(){
-  const q = ROLE === "HOD" ? query(collection(db, MARKS), where("status","==","PENDING_HOD"))
-          : ROLE === "REG" ? query(collection(db, MARKS), where("status","==","PENDING_REG"))
-          : collection(db, MARKS);
+  const queue = ROLE === "HOD" ? query(collection(db, MARKS), where("status","==","PENDING_HOD"))
+              : ROLE === "REG" ? query(collection(db, MARKS), where("status","==","PENDING_REG"))
+              : collection(db, MARKS);
+  const q = (VIEW === "ALL" || ROLE === "DEAN") ? collection(db, MARKS) : queue;
   unsub.push(onSnapshot(q, snap => {
     const items = []; snap.forEach(d => items.push([d.id, d.data()]));
     items.sort((a,b) => String(b[1].createdAt).localeCompare(String(a[1].createdAt)));
@@ -725,8 +739,12 @@ function watchAudit(){
       if(ROLE === "REG" && d.status === "PENDING_REG")
         a = btn("Ansixinta kama dambeysta ah","setStatus('"+id+"','APPROVED')","bg-gold hover:bg-[#b18f1f] text-navy-deep")
           + btn("Ku celi","returnSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
+      if(ROLE === "REG" && d.status === "APPROVED")
+        a += btn("Ka noqo ansixinta","setStatus('"+id+"','PENDING_REG')","border border-navy/20 hover:bg-navy/5");
+      if(ROLE === "REG")
+        a += btn("Tirtir diiwaanka","delSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
       return card(id, d, a);
-    }).join("") : `<p class="text-navy/50 text-sm">Ma jiro wax sugaya hadda.</p>`;
+    }).join("") : `<p class="text-navy/50 text-sm">Ma jiro wax lagu tusayo halkan.</p>`;
   }));
 }
 window.setStatus = async (id, s) => {
@@ -737,7 +755,10 @@ window.returnSub = async id => {
   if(note === null) return;
   await updateDoc(doc(db, MARKS, id), { status:"RETURNED", note });
 };
-window.delSub = async id => { if(confirm("Ma hubtaa in la tirtiro?")) await deleteDoc(doc(db, MARKS, id)); };
+window.delSub = async id => {
+  if(confirm("Diiwaankan waa la tirtirayaa oo dib looma soo celin karo. Sii wad?"))
+    await deleteDoc(doc(db, MARKS, id));
+};
 
 window.findStudent = async () => {
   const key = scrub($("acct-id").value);

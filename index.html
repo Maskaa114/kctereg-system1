@@ -160,6 +160,7 @@
 
   <section id="transcript" class="relative bg-white border border-navy/10 rounded-2xl shadow-[0_22px_60px_-32px_rgba(13,33,73,.6)] overflow-hidden">
     <div id="transcript-watermark" class="absolute inset-0"></div>
+    <div class="absolute top-[18px] -right-[52px] w-[190px] rotate-45 bg-gold text-navy-deep text-center py-1 font-mono text-[9px] font-bold uppercase tracking-[.2em] shadow-md z-10">Official</div>
 
     <div class="relative bg-navy text-white px-7 py-7 flex items-center gap-5 border-b-4 border-gold">
       <img src="logo.svg" alt="KCTE seal" class="h-16 w-16 object-contain">
@@ -168,13 +169,13 @@
         <p class="font-display font-extrabold text-xl leading-tight mt-0.5">Official Statement of Results</p>
         <p class="font-mono text-[10px] text-white/55 mt-1">Kulliyadda Waxbarashada Macalimiinta · Kabridahar, Somali Region</p>
       </div>
-      <span id="tr-status" class="ml-auto self-start font-mono text-[9px] uppercase tracking-[.15em] bg-gold text-navy-deep px-3 py-1.5 rounded-full whitespace-nowrap">Registrar Verified</span>
     </div>
 
-    <div class="relative px-7 py-6 grid sm:grid-cols-3 gap-5 border-b border-navy/10 bg-navy-mist/40">
+    <div class="relative px-7 py-6 grid sm:grid-cols-4 gap-5 border-b border-navy/10 bg-navy-mist/40">
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Student name</p><p id="tr-name" class="font-display font-extrabold text-xl mt-1 uppercase"></p></div>
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Student ID number</p><p id="tr-id" class="font-mono text-lg mt-1"></p></div>
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Courses on record</p><p id="tr-count" class="font-mono text-lg mt-1"></p></div>
+      <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Status</p><span id="tr-status" class="inline-block mt-1 font-mono text-[9px] uppercase tracking-[.15em] bg-gold text-navy-deep px-3 py-1.5 rounded-full whitespace-nowrap">Registrar Verified</span></div>
     </div>
 
     <div class="relative px-3 sm:px-7 py-6 rule">
@@ -206,9 +207,18 @@
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">CGPA</p><p id="tr-gpa" class="font-display font-extrabold text-2xl text-gold"></p></div>
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">Standing</p><p id="tr-honors" class="font-display font-extrabold text-2xl"></p></div>
     </div>
-    <div class="relative px-7 py-4 border-t border-navy/10 flex flex-wrap items-center gap-2">
-      <p class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/35">Registrar-approved electronic record · Generated <span id="tr-date"></span></p>
-      <p class="ml-auto font-mono text-[9px] uppercase tracking-[.15em] text-navy/35">Confidential — for the named student only</p>
+    <div class="relative px-7 py-5 border-t border-navy/10 flex flex-wrap items-end gap-4">
+      <div>
+        <p class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/35">Registrar-approved electronic record · Generated <span id="tr-date"></span></p>
+        <p class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/35 mt-0.5">Confidential — for the named student only</p>
+      </div>
+      <div class="ml-auto flex items-center gap-2 text-right">
+        <div>
+          <p class="font-display font-bold text-[12px] leading-tight">Office of the Registrar</p>
+          <p class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/40">Kabridahar College of Teachers Education</p>
+        </div>
+        <img src="logo.svg" alt="" class="h-14 w-14 object-contain -rotate-6 opacity-90">
+      </div>
     </div>
   </section>
 </main>
@@ -402,6 +412,9 @@ const pointOf  = g => { const r = SCALE.find(x => x[1] === String(g||"").toUpper
 const pointFor = (g, m) => { const p = pointOf(g); return p !== null ? p : (SCALE.find(x => Number(m) >= x[0]) || SCALE.at(-1))[2]; };
 const GRADES   = SCALE.map(r => r[1]);
 const honorsOf = gpa => gpa >= 3.75 ? "Distinction" : gpa >= 3.25 ? "High Credit" : gpa >= 2.75 ? "Credit" : gpa >= 2 ? "Pass" : "Below Pass";
+const honorsCls = gpa => gpa >= 3.75 ? "text-emerald-600" : gpa >= 3.25 ? "text-sky-600" : gpa >= 2.75 ? "text-navy" : gpa >= 2 ? "text-amber-600" : "text-red-600";
+const gradeCls  = pt => pt >= 3.5 ? "bg-emerald-100 text-emerald-800" : pt >= 2.5 ? "bg-sky-100 text-sky-800"
+                       : pt >= 1.75 ? "bg-amber-100 text-amber-800" : pt >= 1 ? "bg-orange-100 text-orange-800" : "bg-red-100 text-red-700";
 
 function msg(id, text, ok=false){
   const el = $(id); el.textContent = text;
@@ -496,7 +509,7 @@ async function showTranscript(){
     if(!me) return;
     if(c.status === "APPROVED")
       rows.push({ subject:c.subject, code:c.code||"—", sem:c.semester||"—", dept:c.dept||"",
-                  onList:me.sid, credit:Number(c.credit)||3,
+                  credit:Number(c.credit)||3,
                   mark:String(me.mark ?? ""), grade:String(me.grade ?? "") });
     else
       waiting.push({ subject:c.subject, code:c.code||"", state:WAITING[c.status] || "Awaiting approval" });
@@ -529,12 +542,12 @@ async function showTranscript(){
     return `<tr class="border-b border-navy/5">
       <td class="py-2 font-mono text-[11px] text-navy/40">${i+1}</td>
       <td class="py-2 pr-2 font-semibold">${esc(r.subject)}
-        <span class="block font-normal font-mono text-[10px] text-navy/35">${esc(r.dept)} ${r.dept ? "·" : ""} on list as: ${esc(r.onList)}</span></td>
+        ${r.dept ? `<span class="block font-normal font-mono text-[10px] text-navy/35">${esc(r.dept)}</span>` : ""}</td>
       <td class="py-2 pr-2 font-mono text-[12px] text-navy/60">${esc(r.code)}</td>
       <td class="py-2 pr-2 text-[12px] text-navy/60">${esc(r.sem)}</td>
       <td class="py-2 text-center font-mono">${r.credit}</td>
       <td class="py-2 text-center font-mono">${esc(r.mark)}</td>
-      <td class="py-2 text-center"><span class="font-display font-extrabold ${pt>=2?'text-navy':'text-red-600'}">${esc(r.grade || "—")}</span></td>
+      <td class="py-2 text-center"><span class="inline-block min-w-[2.4em] font-display font-extrabold text-[13px] rounded-full px-2 py-0.5 ${gradeCls(pt)}">${esc(r.grade || "—")}</span></td>
       <td class="py-2 text-center font-mono text-navy/60">${pt.toFixed(2)}</td></tr>`;
   }).join("");
 
@@ -543,6 +556,7 @@ async function showTranscript(){
   $("tr-avg").textContent    = mn ? (ms/mn).toFixed(1) : "—";
   $("tr-gpa").textContent    = cr ? gpa.toFixed(2) : "—";
   $("tr-honors").textContent = cr ? honorsOf(gpa) : "—";
+  $("tr-honors").className   = "font-display font-extrabold text-2xl " + (cr ? honorsCls(gpa) : "text-navy/40");
   go("scr-result");
 }
 

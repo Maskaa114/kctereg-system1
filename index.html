@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="so">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KCTE Grade Portal — Kabridahar College of Teachers Education</title>
-<link rel="icon" href="logo.png">
+<meta name="description" content="Official online grade management and transcript system for Kabridahar College of Teachers Education.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,10 +38,15 @@
   @keyframes shake { 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
   input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible { outline:3px solid #C9A227; outline-offset:2px; }
   @media (prefers-reduced-motion: reduce) { *{animation:none!important; transition:none!important} }
+  #transcript-watermark {
+    background-image:url('logo.svg'); background-repeat:no-repeat; background-position:center;
+    background-size:340px; opacity:.05; pointer-events:none;
+  }
   @media print {
     .no-print { display:none !important; }
     body { background:#fff; }
     #transcript { box-shadow:none !important; border:1px solid #0D2149; }
+    #transcript-watermark { opacity:.06; }
   }
 </style>
 </head>
@@ -49,10 +55,10 @@
 <!-- ============================ HEADER ============================ -->
 <header class="border-b border-navy/10 bg-white/80 backdrop-blur sticky top-0 z-40 no-print">
   <div class="max-w-6xl mx-auto px-5 py-3 flex items-center gap-3">
-    <img src="logo.png" alt="KCTE" class="h-11 w-11 object-contain" onerror="this.style.display='none'">
+    <img src="logo.svg" alt="KCTE seal" class="h-11 w-11 object-contain">
     <div class="leading-tight">
       <p class="font-display font-extrabold text-[15px] tracking-tight">KABRIDAHAR COLLEGE OF TEACHERS EDUCATION</p>
-      <p class="font-mono text-[10px] text-navy/50 uppercase tracking-[.18em]">Kulliyadda Waxbarashada Macalimiinta · Since 2013</p>
+      <p class="font-mono text-[10px] text-navy/50 uppercase tracking-[.18em]">Grade Management &amp; Transcript System · Since 2013</p>
     </div>
     <button onclick="openStaff()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:border-navy hover:bg-navy hover:text-white px-3 py-2 rounded-md transition">Staff sign in</button>
   </div>
@@ -62,75 +68,75 @@
 <main id="scr-home" class="max-w-6xl mx-auto px-5 py-14 md:py-20 fade">
   <div class="grid md:grid-cols-[1.05fr_.95fr] gap-12 items-start">
     <div>
-      <p class="font-mono text-[11px] uppercase tracking-[.25em] text-gold">Xarunta Natiijada · Grade portal</p>
+      <p class="font-mono text-[11px] uppercase tracking-[.25em] text-gold">Results Center · Student Grade Portal</p>
       <h1 class="font-display font-extrabold text-5xl md:text-6xl leading-[.95] tracking-tight mt-4">
-        Buundadaada,<br>si sir ah,<br><span class="text-gold">markasta.</span>
+        Your grades,<br>kept private,<br><span class="text-gold">anytime you need them.</span>
       </h1>
-      <p class="mt-6 text-navy/70 max-w-md">Geli ID-gaaga, samee akoon hal mar, ka dibna arag natiijada koorsooyinka aad qaadatay ee ay ansixisay Xafiiska Diiwaangelinta.</p>
+      <p class="mt-6 text-navy/70 max-w-md">Enter your Student ID, set up your account once, then view the results for every course that the Registrar Office has finally approved.</p>
 
       <div class="mt-9 bg-white border border-navy/10 rounded-2xl p-6 shadow-[0_18px_40px_-24px_rgba(13,33,73,.55)] max-w-md">
         <label for="sid" class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Student ID number</label>
         <input id="sid" placeholder="SRLD/007/15" autocomplete="username"
           class="w-full mt-2 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-4 font-mono text-2xl uppercase tracking-tight placeholder:text-navy/20 focus:bg-white">
-        <button onclick="checkId()" class="w-full mt-3 bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">Sii wad →</button>
+        <button onclick="checkId()" class="w-full mt-3 bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">Continue →</button>
         <p id="sid-msg" class="mt-3 text-[13px] text-red-600 font-medium hidden"></p>
       </div>
     </div>
 
     <aside class="bg-navy text-white rounded-2xl p-7 md:p-9">
-      <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold-light">Sida ay u shaqeyso</p>
+      <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold-light">How it works</p>
       <ol class="mt-5 space-y-5 text-sm">
-        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">01</span><span><b>Macalinka</b> ayaa buundada gala oo gudbiya.</span></li>
-        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">02</span><span><b>Madaxa Waaxda</b> ayaa hubiya oo ansixiya.</span></li>
-        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">03</span><span><b>Madaxa Diiwaangelinta</b> ayaa ansixinta ugu dambeysa bixiya.</span></li>
-        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">04</span><span><b>Ardayga</b> ayaa akoonkiisa ku arka natiijada.</span></li>
+        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">01</span><span><b>Teacher</b> enters and submits course grades.</span></li>
+        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">02</span><span><b>Department Head</b> reviews and approves them.</span></li>
+        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">03</span><span><b>Registrar Head</b> gives the final approval.</span></li>
+        <li class="flex gap-4"><span class="font-mono text-gold text-xs pt-1">04</span><span><b>Student</b> views the result on their account.</span></li>
       </ol>
-      <p class="mt-7 pt-6 border-t border-white/15 text-[12px] text-white/60">Natiijadu ma muuqato ilaa laga gaaro tallaabada 3-aad.</p>
+      <p class="mt-7 pt-6 border-t border-white/15 text-[12px] text-white/60">Results stay hidden until step 3 is complete — every mark on your transcript has been through both approvals.</p>
     </aside>
   </div>
 </main>
 
 <!-- ============================ 2. STUDENT: CREATE ACCOUNT ============================ -->
 <main id="scr-signup" class="hidden max-w-md mx-auto px-5 py-14 fade">
-  <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold">Akoon cusub · First time</p>
-  <h2 class="font-display font-extrabold text-3xl mt-2">Samee furahaaga sirta ah</h2>
+  <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold">New account · First time here</p>
+  <h2 class="font-display font-extrabold text-3xl mt-2">Create your private password</h2>
   <p id="su-note" class="text-navy/65 text-sm mt-2"></p>
   <div class="mt-7 bg-white border border-navy/10 rounded-2xl p-6 space-y-4">
     <div>
-      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">ID</label>
+      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Student ID</label>
       <p id="su-id" class="font-mono text-xl mt-1"></p>
     </div>
     <div>
-      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Magaca / Full name</label>
+      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Full name</label>
       <input id="su-name" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-semibold uppercase">
       <p id="su-hint" class="font-mono text-[11px] text-navy/45 mt-1.5"></p>
     </div>
     <div>
-      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Koodhka kulliyadda / Activation code</label>
+      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">College code / Activation code</label>
       <input id="su-code" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono uppercase tracking-widest">
-      <p class="text-[11px] text-navy/45 mt-1.5">Koodhkan waxaa ku siinaya macalinka koorsada ama Xafiiska Diiwaangelinta.</p>
+      <p class="text-[11px] text-navy/45 mt-1.5">This code is issued by your course teacher or the Registrar Office.</p>
     </div>
     <div>
-      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Password (ugu yaraan 6 xaraf)</label>
+      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Password (minimum 6 characters)</label>
       <input id="su-p1" type="password" autocomplete="new-password" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3">
     </div>
     <div>
-      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Ku celi password-ka</label>
+      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Confirm password</label>
       <input id="su-p2" type="password" autocomplete="new-password" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3">
     </div>
     <p id="su-msg" class="text-[13px] text-red-600 font-medium hidden"></p>
-    <button onclick="createAccount()" class="w-full bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">Samee akoonka</button>
-    <button onclick="go('scr-home')" class="w-full text-navy/50 text-[12px] font-mono uppercase tracking-[.15em] py-2">Dib u noqo</button>
+    <button onclick="createAccount()" class="w-full bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">Create account</button>
+    <button onclick="go('scr-home')" class="w-full text-navy/50 text-[12px] font-mono uppercase tracking-[.15em] py-2">Back</button>
   </div>
 </main>
 
 <!-- ============================ 3. STUDENT: SIGN IN ============================ -->
 <main id="scr-login" class="hidden max-w-md mx-auto px-5 py-14 fade">
-  <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold">Soo gal · Sign in</p>
-  <h2 class="font-display font-extrabold text-3xl mt-2">Soo dhawoow <span id="li-name" class="text-gold"></span></h2>
+  <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold">Sign in</p>
+  <h2 class="font-display font-extrabold text-3xl mt-2">Welcome back, <span id="li-name" class="text-gold"></span></h2>
   <div class="mt-7 bg-white border border-navy/10 rounded-2xl p-6 space-y-4">
     <div>
-      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">ID</label>
+      <label class="font-mono text-[10px] uppercase tracking-[.2em] text-navy/50">Student ID</label>
       <p id="li-id" class="font-mono text-xl mt-1"></p>
     </div>
     <div>
@@ -138,45 +144,49 @@
       <input id="li-p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')studentLogin()" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3">
     </div>
     <p id="li-msg" class="text-[13px] text-red-600 font-medium hidden"></p>
-    <button onclick="studentLogin()" class="w-full bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">Arag natiijada</button>
-    <p class="text-[12px] text-navy/50 text-center">Password-ka ma xasuusatid? La xidhiidh Xafiiska Diiwaangelinta si loo dib u dejiyo.</p>
-    <button onclick="go('scr-home')" class="w-full text-navy/50 text-[12px] font-mono uppercase tracking-[.15em] py-2">Dib u noqo</button>
+    <button onclick="studentLogin()" class="w-full bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">View my grades</button>
+    <p class="text-[12px] text-navy/50 text-center">Forgot your password? Contact the Registrar Office to have your account reset.</p>
+    <button onclick="go('scr-home')" class="w-full text-navy/50 text-[12px] font-mono uppercase tracking-[.15em] py-2">Back</button>
   </div>
 </main>
 
 <!-- ============================ 4. STUDENT: TRANSCRIPT ============================ -->
 <main id="scr-result" class="hidden max-w-4xl mx-auto px-5 py-12 fade">
   <div class="flex items-center gap-3 mb-5 no-print">
-    <button onclick="window.print()" class="font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Print / PDF</button>
-    <button onclick="refreshTranscript()" class="font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Cusboonaysii</button>
-    <button onclick="signOutStudent()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] text-navy/50 hover:text-navy px-3 py-2">Ka bax</button>
+    <button onclick="window.print()" class="font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Print / Save PDF</button>
+    <button onclick="refreshTranscript()" class="font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Refresh</button>
+    <button onclick="signOutStudent()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] text-navy/50 hover:text-navy px-3 py-2">Sign out</button>
   </div>
 
-  <section id="transcript" class="bg-white border border-navy/10 rounded-2xl shadow-[0_22px_60px_-32px_rgba(13,33,73,.6)] overflow-hidden">
-    <div class="bg-navy text-white px-7 py-6 flex items-center gap-4">
-      <img src="logo.png" alt="" class="h-14 w-14 object-contain" onerror="this.style.display='none'">
+  <section id="transcript" class="relative bg-white border border-navy/10 rounded-2xl shadow-[0_22px_60px_-32px_rgba(13,33,73,.6)] overflow-hidden">
+    <div id="transcript-watermark" class="absolute inset-0"></div>
+
+    <div class="relative bg-navy text-white px-7 py-7 flex items-center gap-5 border-b-4 border-gold">
+      <img src="logo.svg" alt="KCTE seal" class="h-16 w-16 object-contain">
       <div>
-        <p class="font-display font-extrabold text-lg leading-tight">KABRIDAHAR COLLEGE OF TEACHERS EDUCATION</p>
-        <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold-light">Statement of results · Warbixinta natiijada</p>
+        <p class="font-mono text-[9px] uppercase tracking-[.25em] text-gold-light">Kabridahar College of Teachers Education</p>
+        <p class="font-display font-extrabold text-xl leading-tight mt-0.5">Official Statement of Results</p>
+        <p class="font-mono text-[10px] text-white/55 mt-1">Kulliyadda Waxbarashada Macalimiinta · Kabridahar, Somali Region</p>
       </div>
+      <span id="tr-status" class="ml-auto self-start font-mono text-[9px] uppercase tracking-[.15em] bg-gold text-navy-deep px-3 py-1.5 rounded-full whitespace-nowrap">Registrar Verified</span>
     </div>
 
-    <div class="px-7 py-6 grid sm:grid-cols-3 gap-5 border-b border-navy/10">
+    <div class="relative px-7 py-6 grid sm:grid-cols-3 gap-5 border-b border-navy/10 bg-navy-mist/40">
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Student name</p><p id="tr-name" class="font-display font-extrabold text-xl mt-1 uppercase"></p></div>
-      <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">ID number</p><p id="tr-id" class="font-mono text-lg mt-1"></p></div>
-      <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Courses recorded</p><p id="tr-count" class="font-mono text-lg mt-1"></p></div>
+      <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Student ID number</p><p id="tr-id" class="font-mono text-lg mt-1"></p></div>
+      <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/40">Courses on record</p><p id="tr-count" class="font-mono text-lg mt-1"></p></div>
     </div>
 
-    <div class="px-3 sm:px-7 py-6 rule">
+    <div class="relative px-3 sm:px-7 py-6 rule">
       <div id="tr-empty" class="hidden text-center py-10">
-        <p class="font-display font-extrabold text-xl">Weli natiijo lama daabicin</p>
+        <p class="font-display font-extrabold text-xl">No results published yet</p>
         <p id="tr-empty-note" class="text-navy/60 text-sm mt-2 max-w-sm mx-auto"></p>
       </div>
       <table id="tr-table" class="w-full text-left text-sm">
         <thead>
           <tr class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/45 border-b border-navy/15">
-            <th class="py-2 pr-2">#</th><th class="py-2 pr-2">Koorsada</th><th class="py-2 pr-2">Code</th>
-            <th class="py-2 pr-2">Sem</th><th class="py-2 pr-2 text-center">Cr</th>
+            <th class="py-2 pr-2">#</th><th class="py-2 pr-2">Course</th><th class="py-2 pr-2">Code</th>
+            <th class="py-2 pr-2">Semester</th><th class="py-2 pr-2 text-center">Cr</th>
             <th class="py-2 pr-2 text-center">Mark</th><th class="py-2 pr-2 text-center">Grade</th><th class="py-2 text-center">Pt</th>
           </tr>
         </thead>
@@ -184,18 +194,22 @@
       </table>
 
       <div id="tr-pending" class="hidden mt-6 pt-5 border-t border-navy/10">
-        <p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">Sugaya ansixin · Awaiting approval</p>
+        <p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">Awaiting approval</p>
         <ul id="tr-pending-list" class="mt-3 space-y-1.5 text-sm"></ul>
-        <p class="text-[12px] text-navy/50 mt-3">Buundada koorsooyinkan ma muuqan doonto ilaa Xafiiska Diiwaangelintu ansixiyo.</p>
+        <p class="text-[12px] text-navy/50 mt-3">Marks for these courses will not appear here until the Registrar Office gives final approval.</p>
       </div>
     </div>
 
-    <div class="px-7 py-6 bg-navy-mist grid sm:grid-cols-3 gap-4 border-t border-navy/10">
+    <div class="relative px-7 py-6 bg-navy-mist grid sm:grid-cols-4 gap-4 border-t border-navy/10">
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">Total credits</p><p id="tr-cr" class="font-display font-extrabold text-2xl"></p></div>
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">Average mark</p><p id="tr-avg" class="font-display font-extrabold text-2xl"></p></div>
       <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">CGPA</p><p id="tr-gpa" class="font-display font-extrabold text-2xl text-gold"></p></div>
+      <div><p class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/45">Standing</p><p id="tr-honors" class="font-display font-extrabold text-2xl"></p></div>
     </div>
-    <p class="px-7 py-3 font-mono text-[9px] uppercase tracking-[.15em] text-navy/35 border-t border-navy/10">Registrar-approved record · Generated <span id="tr-date"></span></p>
+    <div class="relative px-7 py-4 border-t border-navy/10 flex flex-wrap items-center gap-2">
+      <p class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/35">Registrar-approved electronic record · Generated <span id="tr-date"></span></p>
+      <p class="ml-auto font-mono text-[9px] uppercase tracking-[.15em] text-navy/35">Confidential — for the named student only</p>
+    </div>
   </section>
 </main>
 
@@ -203,13 +217,13 @@
 <div id="staff-modal" class="hidden fixed inset-0 bg-navy-deep/95 z-50 flex items-center justify-center p-5 no-print">
   <div class="bg-white rounded-2xl w-full max-w-sm p-7">
     <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold">Staff desk</p>
-    <h3 class="font-display font-extrabold text-2xl mt-1">Gasho xafiiskaaga</h3>
+    <h3 class="font-display font-extrabold text-2xl mt-1">Sign in to your office</h3>
     <div class="mt-6 space-y-3">
       <input id="u" placeholder="Username" class="w-full bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono">
       <input id="p" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')staffLogin()" class="w-full bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono">
       <p id="staff-msg" class="text-[13px] text-red-600 font-medium hidden"></p>
       <button onclick="staffLogin()" class="w-full bg-navy hover:bg-navy-soft text-white font-semibold py-3.5 rounded-xl transition">Sign in</button>
-      <button onclick="document.getElementById('staff-modal').classList.add('hidden')" class="w-full text-navy/50 text-[12px] font-mono uppercase tracking-[.15em] py-2">Xir</button>
+      <button onclick="document.getElementById('staff-modal').classList.add('hidden')" class="w-full text-navy/50 text-[12px] font-mono uppercase tracking-[.15em] py-2">Close</button>
     </div>
   </div>
 </div>
@@ -221,13 +235,13 @@
       <p class="font-mono text-[10px] uppercase tracking-[.2em] text-gold" id="role-sub"></p>
       <h2 id="role-tag" class="font-display font-extrabold text-4xl leading-none mt-1"></h2>
     </div>
-    <button onclick="location.reload()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Ka bax</button>
+    <button onclick="location.reload()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-4 py-2 rounded-md transition">Sign out</button>
   </div>
 
   <!-- TEACHER -->
   <section id="ui-teacher" class="hidden space-y-8">
     <div class="bg-white border border-navy/10 rounded-2xl p-6 md:p-8">
-      <h3 class="font-display font-extrabold text-2xl">Geli buundada koorsada</h3>
+      <h3 class="font-display font-extrabold text-2xl">Enter course grades</h3>
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
         <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Course title</label>
           <input id="f-subject" placeholder="Somali Language I" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-semibold"></div>
@@ -237,17 +251,17 @@
           <input id="f-credit" type="number" min="1" max="10" value="3" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono"></div>
         <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Semester / Year</label>
           <input id="f-sem" placeholder="Sem 1 · 2025/26" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3"></div>
-        <div class="sm:col-span-2 lg:col-span-4"><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Waaxda / Department</label>
+        <div class="sm:col-span-2 lg:col-span-4"><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Department</label>
           <input id="f-dept" placeholder="Natural Science" class="w-full mt-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3"></div>
       </div>
 
       <div class="mt-6">
-        <label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Faylka Excel — hal mar oo dhan</label>
+        <label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Excel file — the whole class at once</label>
         <div id="drop" class="mt-1 border-2 border-dashed border-navy/20 rounded-2xl px-6 py-9 text-center cursor-pointer hover:border-gold hover:bg-gold-pale/40 transition"
              onclick="document.getElementById('f-file').click()">
-          <p class="font-display font-extrabold text-lg">Dhagsii ama halkan ku rid faylka</p>
+          <p class="font-display font-extrabold text-lg">Click or drop the file here</p>
           <p class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/45 mt-2">.xlsx · .xls · .csv</p>
-          <p class="text-[12px] text-navy/55 mt-3">Tiirarka: <b>Magaca</b> · <b>ID</b> · <b>Mark</b> (Grade ikhtiyaari)</p>
+          <p class="text-[12px] text-navy/55 mt-3">Columns: <b>Name</b> · <b>ID</b> · <b>Mark</b> (Grade optional)</p>
           <input id="f-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFile(this.files[0])">
         </div>
         <div class="flex flex-wrap items-center gap-3 mt-3">
@@ -256,49 +270,49 @@
         </div>
 
         <details id="mapper" class="hidden mt-4 border border-navy/15 rounded-2xl p-5 bg-navy-mist/60">
-          <summary class="cursor-pointer font-display font-extrabold text-lg">Tiirarka faylka <span class="font-sans font-normal text-[12px] text-navy/55">— fur haddii tiir khaldan yahay</span></summary>
-          <p class="text-[12px] text-navy/60 mt-2">Dhagsii madaxa tiirka si aad u beddesho: Magaca → ID → Mark → Grade → laga saaro.</p>
+          <summary class="cursor-pointer font-display font-extrabold text-lg">File columns <span class="font-sans font-normal text-[12px] text-navy/55">— open this if a column was matched wrong</span></summary>
+          <p class="text-[12px] text-navy/60 mt-2">Click a column heading to change it: Name → ID → Mark → Grade → none.</p>
           <div id="m-raw" class="overflow-x-auto mt-4 bg-white rounded-xl border border-navy/10"></div>
           <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
-            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Safka header</label>
+            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Header row</label>
               <select id="m-header" onchange="onHeaderChange()" class="w-full mt-1 bg-white border border-navy/15 rounded-lg px-2 py-2 text-[12px]"></select></div>
-            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Magaca</label>
+            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Name</label>
               <select id="m-name" onchange="previewMap()" class="w-full mt-1 bg-white border border-navy/15 rounded-lg px-2 py-2 text-[12px]"></select></div>
-            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">ID number</label>
+            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Student ID</label>
               <select id="m-sid" onchange="previewMap()" class="w-full mt-1 bg-white border border-navy/15 rounded-lg px-2 py-2 text-[12px]"></select></div>
             <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Mark /100</label>
               <select id="m-mark" onchange="previewMap()" class="w-full mt-1 bg-white border border-navy/15 rounded-lg px-2 py-2 text-[12px]"></select></div>
-            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Grade (ikhtiyaari)</label>
+            <div><label class="font-mono text-[9px] uppercase tracking-[.2em] text-navy/50">Grade (optional)</label>
               <select id="m-grade" onchange="previewMap()" class="w-full mt-1 bg-white border border-navy/15 rounded-lg px-2 py-2 text-[12px]"></select></div>
           </div>
           <div id="m-preview" class="overflow-x-auto mt-4"></div>
         </details>
-        <details class="mt-3"><summary class="cursor-pointer font-mono text-[10px] uppercase tracking-[.15em] text-navy/45">Ama copy/paste ka samee Excel</summary>
-          <textarea id="f-paste" oninput="parsePaste(this.value)" rows="4" placeholder="Xasan Cali&#9;SRLD/007/15&#9;87"
+        <details class="mt-3"><summary class="cursor-pointer font-mono text-[10px] uppercase tracking-[.15em] text-navy/45">Or paste rows copied from Excel</summary>
+          <textarea id="f-paste" oninput="parsePaste(this.value)" rows="4" placeholder="Hassan Ali&#9;SRLD/007/15&#9;87"
             class="w-full mt-2 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono text-xs"></textarea>
         </details>
       </div>
 
       <div class="flex items-center gap-3 mt-5">
-        <p id="row-count" class="font-mono text-[11px] uppercase tracking-[.15em] text-navy/55">0 arday</p>
-        <button onclick="addRow()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-3 py-2 rounded-md transition">+ Arday</button>
-        <button onclick="clearRows()" class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/45 hover:text-red-600 px-2 py-2">Nadiifi</button>
+        <p id="row-count" class="font-mono text-[11px] uppercase tracking-[.15em] text-navy/55">0 students</p>
+        <button onclick="addRow()" class="ml-auto font-mono text-[10px] uppercase tracking-[.15em] border border-navy/20 hover:bg-navy hover:text-white px-3 py-2 rounded-md transition">+ Student</button>
+        <button onclick="clearRows()" class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/45 hover:text-red-600 px-2 py-2">Clear</button>
       </div>
 
       <div class="overflow-x-auto mt-3">
         <table class="w-full text-sm min-w-[620px]">
           <thead><tr class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/45 border-b border-navy/15 text-left">
-            <th class="py-2 w-8">#</th><th class="py-2">Magaca</th><th class="py-2">ID</th><th class="py-2 w-24">Mark /100</th><th class="py-2 w-24">Grade</th><th class="py-2 w-10"></th>
+            <th class="py-2 w-8">#</th><th class="py-2">Name</th><th class="py-2">ID</th><th class="py-2 w-24">Mark /100</th><th class="py-2 w-24">Grade</th><th class="py-2 w-10"></th>
           </tr></thead>
           <tbody id="row-body"></tbody>
         </table>
       </div>
 
-      <button onclick="submitBatch()" class="w-full mt-6 bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">Gudbi Madaxa Waaxda →</button>
+      <button onclick="submitBatch()" class="w-full mt-6 bg-navy hover:bg-navy-soft text-white font-semibold py-4 rounded-xl transition">Submit to Department Head →</button>
     </div>
 
     <div>
-      <h3 class="font-display font-extrabold text-2xl mb-4">Gudbinnadaada</h3>
+      <h3 class="font-display font-extrabold text-2xl mb-4">Your submissions</h3>
       <div id="teacher-list" class="space-y-4"></div>
     </div>
   </section>
@@ -306,20 +320,20 @@
   <!-- APPROVALS / REVIEW -->
   <section id="ui-audit" class="hidden">
     <div id="audit-tabs" class="hidden flex gap-2 mb-5">
-      <button onclick="setView('QUEUE')" id="tab-QUEUE" class="font-mono text-[10px] uppercase tracking-[.15em] px-4 py-2 rounded-md border border-navy/20">Sugaya</button>
-      <button onclick="setView('ALL')" id="tab-ALL" class="font-mono text-[10px] uppercase tracking-[.15em] px-4 py-2 rounded-md border border-navy/20">Dhammaan diiwaanka</button>
+      <button onclick="setView('QUEUE')" id="tab-QUEUE" class="font-mono text-[10px] uppercase tracking-[.15em] px-4 py-2 rounded-md border border-navy/20">Pending</button>
+      <button onclick="setView('ALL')" id="tab-ALL" class="font-mono text-[10px] uppercase tracking-[.15em] px-4 py-2 rounded-md border border-navy/20">All records</button>
     </div>
     <div id="audit-list" class="space-y-5"></div>
   </section>
 
   <!-- REGISTRAR: STUDENT ACCOUNTS -->
   <section id="ui-accounts" class="hidden mt-10 bg-white border border-navy/10 rounded-2xl p-6 md:p-8">
-    <h3 class="font-display font-extrabold text-2xl">Akoonnada ardayda</h3>
-    <p class="text-navy/60 text-sm mt-1">Haddii arday password-kiisa illoobo, tirtir akoonka si uu mar kale u sameysto.</p>
+    <h3 class="font-display font-extrabold text-2xl">Student accounts</h3>
+    <p class="text-navy/60 text-sm mt-1">If a student forgets their password, reset the account so they can create a new one.</p>
     <div class="flex gap-3 mt-4">
       <input id="acct-id" placeholder="SRLD/007/15" class="flex-1 bg-navy/[.04] border border-navy/10 rounded-xl px-4 py-3 font-mono uppercase">
-      <button onclick="findStudent()" class="border border-navy/20 hover:bg-navy hover:text-white font-semibold px-5 rounded-xl transition">Raadi</button>
-      <button onclick="resetAccount()" class="bg-navy text-white font-semibold px-5 rounded-xl">Dib u deji</button>
+      <button onclick="findStudent()" class="border border-navy/20 hover:bg-navy hover:text-white font-semibold px-5 rounded-xl transition">Search</button>
+      <button onclick="resetAccount()" class="bg-navy text-white font-semibold px-5 rounded-xl">Reset</button>
     </div>
     <p id="acct-msg" class="text-[13px] font-medium mt-3 hidden"></p>
     <div id="acct-hits" class="mt-4 space-y-2 text-sm"></div>
@@ -356,9 +370,9 @@ const SIGNUP_CODE = "KCTE2013";
 
 /* ---------- Staff accounts (edit here) ---------- */
 const STAFF = {
-  "Macalin114":  { pass:"kctepass",  role:"TEACHER", label:"Macalin" },
-  "D.head 5353": { pass:"headpass",  role:"HOD",     label:"Madaxa Waaxda" },
-  "REG.12345":   { pass:"regpass",   role:"REG",     label:"Diiwaangelinta" },
+  "Macalin114":  { pass:"kctepass",  role:"TEACHER", label:"Teacher" },
+  "D.head 5353": { pass:"headpass",  role:"HOD",     label:"Department Head" },
+  "REG.12345":   { pass:"regpass",   role:"REG",     label:"Registrar Office" },
   "dean12345":   { pass:"deanpass",  role:"DEAN",    label:"Dean" }
 };
 
@@ -387,6 +401,7 @@ const gradeOf  = m => (SCALE.find(r => Number(m) >= r[0]) || SCALE.at(-1))[1];
 const pointOf  = g => { const r = SCALE.find(x => x[1] === String(g||"").toUpperCase().trim()); return r ? r[2] : null; };
 const pointFor = (g, m) => { const p = pointOf(g); return p !== null ? p : (SCALE.find(x => Number(m) >= x[0]) || SCALE.at(-1))[2]; };
 const GRADES   = SCALE.map(r => r[1]);
+const honorsOf = gpa => gpa >= 3.75 ? "Distinction" : gpa >= 3.25 ? "High Credit" : gpa >= 2.75 ? "Credit" : gpa >= 2 ? "Pass" : "Below Pass";
 
 function msg(id, text, ok=false){
   const el = $(id); el.textContent = text;
@@ -402,7 +417,7 @@ let current = null;                       // { key, sid, name }
 
 window.checkId = async () => {
   const raw = $("sid").value.trim();
-  if(!raw) return msg("sid-msg","Fadlan geli ID-gaaga.");
+  if(!raw) return msg("sid-msg","Please enter your Student ID.");
   const key = scrub(raw);
   $("sid-msg").classList.add("hidden");
 
@@ -427,21 +442,21 @@ window.checkId = async () => {
     $("su-name").readOnly  = !!found;
     $("su-name").classList.toggle("opacity-70", !!found);
     $("su-note").textContent = found
-      ? "Waxaa lagu helay liiska macalinka. Samee password kaaga gaar ah — adiga oo keliya ayaa arki doona buundadaada."
-      : "ID-gan liiska Excel ee la gudbiyay kuma jiro. Hubi lambarka, ama la xidhiidh macalinka koorsada / Xafiiska Diiwaangelinta si laguu daro.";
-    $("su-hint").textContent = found ? courses + " koorso ayaa ID-gan lagu diiwaan geliyay." : "";
+      ? "Found on a teacher's submitted list. Set a password only you know — you alone will be able to see your grades."
+      : "This ID does not appear on any submitted Excel list. Check the number, or contact your course teacher / the Registrar Office to be added.";
+    $("su-hint").textContent = found ? courses + " course record" + (courses === 1 ? "" : "s") + " found for this ID." : "";
     go("scr-signup");
-  } catch(e){ msg("sid-msg","Xidhiidhka ma shaqeynin. Isku day mar kale."); console.error(e); }
+  } catch(e){ msg("sid-msg","Could not connect. Please try again."); console.error(e); }
 };
 
 window.createAccount = async () => {
   const name = $("su-name").value.trim(), p1 = $("su-p1").value, p2 = $("su-p2").value;
   const code = $("su-code").value.trim().toUpperCase();
-  if(!current.record) return msg("su-msg","ID-gan liiska Excel kuma jiro, akoon looma sameyn karo. La xidhiidh macalinka koorsada.");
-  if(code !== SIGNUP_CODE) return msg("su-msg","Koodhka kulliyaddu waa khaldan yahay.");
-  if(!name) return msg("su-msg","Magaca waa banaan yahay.");
-  if(p1.length < 6) return msg("su-msg","Password-ku waa inuu ka koobnaadaa ugu yaraan 6 xaraf.");
-  if(p1 !== p2)     return msg("su-msg","Labada password isku mid ma aha.");
+  if(!current.record) return msg("su-msg","This ID is not on any submitted list, so an account cannot be created. Contact your course teacher.");
+  if(code !== SIGNUP_CODE) return msg("su-msg","The college code is incorrect.");
+  if(!name) return msg("su-msg","Please enter your name.");
+  if(p1.length < 6) return msg("su-msg","Password must be at least 6 characters.");
+  if(p1 !== p2)     return msg("su-msg","The two passwords do not match.");
   try {
     const finalName = current.record.toUpperCase();
     await setDoc(doc(db, STUDENTS, current.key), {
@@ -450,27 +465,27 @@ window.createAccount = async () => {
     });
     current.name = finalName;
     await showTranscript();
-  } catch(e){ msg("su-msg","Akoonka lama abuuri karin hadda."); console.error(e); }
+  } catch(e){ msg("su-msg","Could not create the account right now. Please try again."); console.error(e); }
 };
 
 window.studentLogin = async () => {
   const p = $("li-p").value;
-  if(!p) return msg("li-msg","Geli password-kaaga.");
+  if(!p) return msg("li-msg","Please enter your password.");
   try {
     const acct = await getDoc(doc(db, STUDENTS, current.key));
-    if(acct.data().passHash !== await hash(current.key, p)) return msg("li-msg","Password khaldan.");
+    if(acct.data().passHash !== await hash(current.key, p)) return msg("li-msg","Incorrect password.");
     current.name = acct.data().name;
     await showTranscript();
-  } catch(e){ msg("li-msg","Isku day mar kale."); console.error(e); }
+  } catch(e){ msg("li-msg","Something went wrong. Please try again."); console.error(e); }
 };
 
 window.signOutStudent = () => { current = null; $("sid").value=""; go("scr-home"); };
 
 window.refreshTranscript = () => showTranscript();
 
-const WAITING = { PENDING_HOD:"Macalinku wuu gudbiyay — sugaya Waaxda",
-                  PENDING_REG:"Waaxdu way ansixisay — sugaya Diiwaangelinta",
-                  RETURNED:"Waxaa lagu celiyay macalinka" };
+const WAITING = { PENDING_HOD:"Submitted by teacher — awaiting Department Head review",
+                  PENDING_REG:"Approved by Department — awaiting Registrar approval",
+                  RETURNED:"Returned to the teacher for correction" };
 
 async function showTranscript(){
   const snap = await getDocs(collection(db, MARKS));
@@ -484,7 +499,7 @@ async function showTranscript(){
                   onList:me.sid, credit:Number(c.credit)||3,
                   mark:String(me.mark ?? ""), grade:String(me.grade ?? "") });
     else
-      waiting.push({ subject:c.subject, code:c.code||"", state:WAITING[c.status] || "Sugaya ansixin" });
+      waiting.push({ subject:c.subject, code:c.code||"", state:WAITING[c.status] || "Awaiting approval" });
   });
   rows.sort((a,b)=> String(a.sem).localeCompare(String(b.sem)) || a.subject.localeCompare(b.subject));
 
@@ -499,12 +514,13 @@ async function showTranscript(){
   $("tr-name").textContent  = current.name;
   $("tr-id").textContent    = current.sid;
   $("tr-count").textContent = rows.length;
-  $("tr-date").textContent  = new Date().toLocaleDateString();
+  $("tr-date").textContent  = new Date().toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" });
+  $("tr-status").textContent = rows.length ? "Registrar Verified" : "No Approved Results";
   $("tr-empty").classList.toggle("hidden", rows.length > 0);
   $("tr-table").classList.toggle("hidden", rows.length === 0);
   $("tr-empty-note").textContent = waiting.length
-    ? "Koorsooyinkaagu way sugayaan ansixinta. Riix \"Cusboonaysii\" mar dambe."
-    : "ID-gaaga weli buundo lagama gudbin. La xidhiidh macalinka koorsada ama Xafiiska Diiwaangelinta.";
+    ? "Your courses are still awaiting approval. Press \"Refresh\" again later."
+    : "No grades have been submitted for your ID yet. Contact your course teacher or the Registrar Office.";
 
   let cr = 0, qp = 0, ms = 0, mn = 0;
   $("tr-body").innerHTML = rows.map((r,i) => {
@@ -513,7 +529,7 @@ async function showTranscript(){
     return `<tr class="border-b border-navy/5">
       <td class="py-2 font-mono text-[11px] text-navy/40">${i+1}</td>
       <td class="py-2 pr-2 font-semibold">${esc(r.subject)}
-        <span class="block font-normal font-mono text-[10px] text-navy/35">${esc(r.dept)} ${r.dept ? "·" : ""} liiska: ${esc(r.onList)}</span></td>
+        <span class="block font-normal font-mono text-[10px] text-navy/35">${esc(r.dept)} ${r.dept ? "·" : ""} on list as: ${esc(r.onList)}</span></td>
       <td class="py-2 pr-2 font-mono text-[12px] text-navy/60">${esc(r.code)}</td>
       <td class="py-2 pr-2 text-[12px] text-navy/60">${esc(r.sem)}</td>
       <td class="py-2 text-center font-mono">${r.credit}</td>
@@ -522,9 +538,11 @@ async function showTranscript(){
       <td class="py-2 text-center font-mono text-navy/60">${pt.toFixed(2)}</td></tr>`;
   }).join("");
 
-  $("tr-cr").textContent  = cr || "—";
-  $("tr-avg").textContent = mn ? (ms/mn).toFixed(1) : "—";
-  $("tr-gpa").textContent = cr ? (qp/cr).toFixed(2) : "—";
+  const gpa = cr ? qp/cr : 0;
+  $("tr-cr").textContent     = cr || "—";
+  $("tr-avg").textContent    = mn ? (ms/mn).toFixed(1) : "—";
+  $("tr-gpa").textContent    = cr ? gpa.toFixed(2) : "—";
+  $("tr-honors").textContent = cr ? honorsOf(gpa) : "—";
   go("scr-result");
 }
 
@@ -535,13 +553,13 @@ let ROLE = null, USER = null, unsub = [];
 window.staffLogin = () => {
   const u = $("u").value.trim(), p = $("p").value;
   const acct = STAFF[u];
-  if(!acct || acct.pass !== p) return msg("staff-msg","Username ama password khaldan.");
+  if(!acct || acct.pass !== p) return msg("staff-msg","Incorrect username or password.");
   ROLE = acct.role; USER = u;
   $("staff-modal").classList.add("hidden");
   $("role-tag").textContent = acct.label;
   $("role-sub").textContent = ROLE === "TEACHER" ? "Instructor desk"
-                            : ROLE === "HOD" ? "Ansixinta 1-aad · Department"
-                            : ROLE === "REG" ? "Ansixinta kama dambeysta ah · Registrar" : "Kormeerka guud";
+                            : ROLE === "HOD" ? "First approval · Department"
+                            : ROLE === "REG" ? "Final approval · Registrar" : "Overview";
   go("scr-staff");
   if(ROLE === "TEACHER"){ $("ui-teacher").classList.remove("hidden"); addRow(); watchTeacher(); }
   else { $("ui-audit").classList.remove("hidden"); if(ROLE === "REG"){ $("audit-tabs").classList.remove("hidden"); setView("QUEUE"); } else watchAudit(); }
@@ -560,7 +578,7 @@ const render = () => {
       <td class="py-1 pr-2"><input id="g${i}" type="text" value="${esc(r.grade)}" onchange="upd(${i},'grade',this.value)" class="w-16 bg-transparent border-b border-navy/10 py-1.5 font-display font-extrabold uppercase focus:border-gold outline-none"></td>
       <td class="py-1 text-center"><button onclick="delRow(${i})" class="text-navy/25 hover:text-red-600 text-lg leading-none">×</button></td>
     </tr>`).join("");
-  $("row-count").textContent = buffer.length + " arday";
+  $("row-count").textContent = buffer.length + " student" + (buffer.length === 1 ? "" : "s");
 };
 window.upd = (i, f, v) => {
   buffer[i][f] = v.trim();   // stored exactly as typed / exactly as in the sheet
@@ -599,7 +617,7 @@ window.handleFile = async file => {
     loadSheet(WB.SheetNames[0]);
   } catch(e){
     console.error(e);
-    msg("file-msg","Faylka lama furi karin. Isticmaal .xlsx, .xls ama .csv.");
+    msg("file-msg","Could not open the file. Use .xlsx, .xls or .csv.");
   }
 };
 
@@ -607,7 +625,7 @@ window.loadSheet = name => {
   GRID = XLSX.utils.sheet_to_json(WB.Sheets[name], { header:1, raw:false, defval:"" })
     .map(r => r.map(c => String(c ?? "").trim()))
     .filter(r => r.some(c => c !== ""));
-  if(!GRID.length) return msg("file-msg","Sheet-kan wuu maran yahay.");
+  if(!GRID.length) return msg("file-msg","This sheet is empty.");
   buildMapper();
 };
 
@@ -616,18 +634,18 @@ let GRID = [];
 const colLabel = i => String.fromCharCode(65 + i);
 
 const ROLES = [
-  { el:"m-name",  label:"Magaca", cls:"bg-blue-100 text-blue-800" },
-  { el:"m-sid",   label:"ID",     cls:"bg-green-100 text-green-800" },
-  { el:"m-mark",  label:"Mark",   cls:"bg-amber-100 text-amber-800" },
-  { el:"m-grade", label:"Grade",  cls:"bg-purple-100 text-purple-800" }
+  { el:"m-name",  label:"Name",  cls:"bg-blue-100 text-blue-800" },
+  { el:"m-sid",   label:"ID",    cls:"bg-green-100 text-green-800" },
+  { el:"m-mark",  label:"Mark",  cls:"bg-amber-100 text-amber-800" },
+  { el:"m-grade", label:"Grade", cls:"bg-purple-100 text-purple-800" }
 ];
 
 function buildMapper(){
   const nCols = Math.max(...GRID.map(r => r.length));
   const hdr = $("m-header");
   hdr.innerHTML = GRID.slice(0, 10).map((r,i) =>
-    `<option value="${i}">Saf ${i+1}: ${esc(r.slice(0,4).join(" | ").slice(0,40))}</option>`).join("")
-    + `<option value="-1">Header ma jiro</option>`;
+    `<option value="${i}">Row ${i+1}: ${esc(r.slice(0,4).join(" | ").slice(0,40))}</option>`).join("")
+    + `<option value="-1">No header row</option>`;
 
   let guess = 0;
   for(let i = 0; i < Math.min(GRID.length, 8); i++){
@@ -645,7 +663,7 @@ function buildMapper(){
 function fillCols(nCols){
   const h = Number($("m-header").value);
   const head = h > -1 ? (GRID[h] || []) : [];
-  const opts = `<option value="-1">— midna —</option>` +
+  const opts = `<option value="-1">— none —</option>` +
     Array.from({length:nCols}, (_,i) =>
       `<option value="${i}">${colLabel(i)} · ${esc((head[i] || GRID[h+1]?.[i] || "").slice(0,18))}</option>`).join("");
   ROLES.forEach(r => { $(r.el).innerHTML = opts; });
@@ -738,7 +756,7 @@ function renderRaw(){
       return `<td class="px-2 py-1.5 border-b border-navy/5 whitespace-nowrap ${role ? role.cls.replace(/bg-(\w+)-100/,"bg-$1-50") : ""}">${esc((r[i] || "").slice(0,22))}</td>`;
     }).join("")}</tr>`).join("");
   $("m-raw").innerHTML = `<table class="text-[11px] w-full"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-    ${GRID.length > 8 ? `<p class="px-2 py-1.5 text-[10px] font-mono text-navy/35">…iyo ${GRID.length - 8} saf oo kale</p>` : ""}`;
+    ${GRID.length > 8 ? `<p class="px-2 py-1.5 text-[10px] font-mono text-navy/35">…and ${GRID.length - 8} more row${GRID.length - 8 === 1 ? "" : "s"}</p>` : ""}`;
 }
 
 function mappedRows(){
@@ -763,15 +781,15 @@ window.previewMap = () => {
   const noMark = rows.filter(r => !r.mark).length;
   $("m-preview").innerHTML = `
     <p class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/50">
-      ${rows.length} saf · ${Object.keys(dupes).length} ID laba-laab · ${noMark} saf oo buundo la&#39;aan ah</p>`;
+      ${rows.length} row${rows.length===1?"":"s"} · ${Object.keys(dupes).length} duplicate ID${Object.keys(dupes).length===1?"":"s"} · ${noMark} row${noMark===1?"":"s"} with no mark</p>`;
 };
 
 window.applyMapping = () => {
   const rows = mappedRows();
-  if(!rows.length) return msg("file-msg","Wax saf ah lagama helin. Beddel safka header ama tiirarka.");
+  if(!rows.length) return msg("file-msg","No rows found. Change the header row or the columns.");
   const noGrade = rows.filter(r => !r.grade).length;
-  msg("file-msg", rows.length + " arday · sidii Excel-ku ahaa."
-      + (noGrade ? " " + noGrade + " saf ma laha xaraf Grade ah." : ""), true);
+  msg("file-msg", rows.length + " student" + (rows.length===1?"":"s") + " — exactly as in the Excel file."
+      + (noGrade ? " " + noGrade + " row" + (noGrade===1?"":"s") + " have no Grade letter." : ""), true);
 };
 
 // Paste fallback: the pasted grid goes through the same confirm-the-columns panel,
@@ -781,21 +799,21 @@ window.parsePaste = raw => {
             .filter(r => r.some(c => c !== ""));
   if(GRID.length < 2) return;
   buildMapper();
-  msg("file-msg", GRID.length + " saf la soo dhuujiyay. Xaqiiji tiirarka hoos.", true);
+  msg("file-msg", GRID.length + " row" + (GRID.length===1?"":"s") + " pasted. Please confirm the columns below.", true);
 };
 
 window.submitBatch = async () => {
   const subject = $("f-subject").value.trim();
   const rows = buffer.filter(r => r.name && r.sid);
-  if(!subject) return alert("Geli magaca koorsada.");
-  if(!rows.length) return alert("Ma jiro arday la geliyay (magac + ID).");
+  if(!subject) return alert("Please enter the course title.");
+  if(!rows.length) return alert("No students entered (name + ID required).");
   const odd = rows.filter(r => r.mark === "" || isNaN(Number(r.mark)) || Number(r.mark) < 0 || Number(r.mark) > 100);
-  if(odd.length && !confirm(odd.length + " saf ayaa leh buundo aan ahayn 0–100 (tusaale: " + odd[0].name + " = " + odd[0].mark + "). Sii wad sidii Excel-ku ahaa?")) return;
+  if(odd.length && !confirm(odd.length + " row(s) have a mark that isn't 0–100 (example: " + odd[0].name + " = " + odd[0].mark + "). Submit exactly as in the Excel file anyway?")) return;
   const seen = {};
   for(const r of rows){
     const k = scrub(r.sid);
-    if(k.length < 3) return alert("ID khaldan: " + r.name + " — ID-gu waa inuu buuxaa oo sax ah.");
-    if(seen[k]) return alert("ID laba jeer ku soo noqday: " + r.sid + " (" + seen[k] + " iyo " + r.name + "). Saxi Excel-ka.");
+    if(k.length < 3) return alert("Invalid ID: " + r.name + " — the ID must be filled in correctly.");
+    if(seen[k]) return alert("This ID appears twice: " + r.sid + " (" + seen[k] + " and " + r.name + "). Please fix the Excel file.");
     seen[k] = r.name;
   }
   try {
@@ -807,19 +825,27 @@ window.submitBatch = async () => {
       instructor: USER, students: rows.map(r => ({ name:r.name, sid:r.sid, mark:r.mark, grade:r.grade })),
       status: "PENDING_HOD", note: "", createdAt: new Date().toISOString()
     });
-    alert("Waa la gudbiyay. Waxay sugaysaa ansixinta Madaxa Waaxda.");
+    alert("Submitted. It is now awaiting review by the Department Head.");
     $("f-subject").value = ""; $("f-code").value = ""; $("f-sem").value = ""; $("f-dept").value = "";
     clearRows();
-  } catch(e){ alert("Gudbintu ma guuleysan. Hubi xidhiidhka."); console.error(e); }
+  } catch(e){ alert("Submission failed. Please check your connection."); console.error(e); }
 };
 
 /* ---------- Cards ---------- */
 const BADGE = {
-  PENDING_HOD:["Sugaya Waaxda","bg-amber-100 text-amber-800"],
-  PENDING_REG:["Sugaya Diiwaangelinta","bg-blue-100 text-blue-800"],
-  APPROVED:["La ansixiyay","bg-green-100 text-green-800"],
-  RETURNED:["La celiyay","bg-red-100 text-red-700"]
+  PENDING_HOD:["Pending Department","bg-amber-100 text-amber-800"],
+  PENDING_REG:["Pending Registrar","bg-blue-100 text-blue-800"],
+  APPROVED:["Approved","bg-green-100 text-green-800"],
+  RETURNED:["Returned","bg-red-100 text-red-700"]
 };
+function auditLine(d){
+  const parts = [];
+  if(d.instructor)  parts.push("Uploaded by " + esc(d.instructor));
+  if(d.reviewedBy)  parts.push("reviewed by " + esc(d.reviewedBy));
+  if(d.approvedBy)  parts.push("approved by " + esc(d.approvedBy));
+  if(d.status === "RETURNED" && d.returnedBy) parts.push("returned by " + esc(d.returnedBy));
+  return parts.join(" · ");
+}
 function card(id, d, actions){
   const b = BADGE[d.status] || ["—","bg-navy/10"];
   const rows = (d.students||[]).map(s => `<tr class="border-b border-navy/5">
@@ -831,15 +857,16 @@ function card(id, d, actions){
       <div>
         <h4 class="font-display font-extrabold text-xl">${esc(d.subject)} <span class="font-mono text-[12px] text-navy/40">${esc(d.code||"")}</span></h4>
         <p class="font-mono text-[10px] uppercase tracking-[.15em] text-navy/45 mt-1">
-          ${esc(d.instructor)} · ${esc(d.dept||"—")} · ${esc(d.semester||"—")} · ${(d.students||[]).length} arday · ${d.credit||3} cr</p>
+          ${esc(d.instructor)} · ${esc(d.dept||"—")} · ${esc(d.semester||"—")} · ${(d.students||[]).length} student${(d.students||[]).length===1?"":"s"} · ${d.credit||3} cr</p>
       </div>
       <span class="ml-auto text-[10px] font-mono uppercase tracking-[.12em] px-2.5 py-1 rounded-full ${b[1]}">${b[0]}</span>
     </div>
-    ${d.note ? `<p class="mt-3 text-[13px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">Faallo: ${esc(d.note)}</p>` : ""}
-    <details class="mt-4"><summary class="cursor-pointer font-mono text-[10px] uppercase tracking-[.15em] text-navy/50">Fiiri liiska ardayda</summary>
+    ${d.note ? `<p class="mt-3 text-[13px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">Note: ${esc(d.note)}</p>` : ""}
+    <p class="mt-3 font-mono text-[9px] uppercase tracking-[.12em] text-navy/35">${auditLine(d)}</p>
+    <details class="mt-4"><summary class="cursor-pointer font-mono text-[10px] uppercase tracking-[.15em] text-navy/50">View student list</summary>
       <div class="overflow-x-auto"><table class="w-full text-sm mt-3 min-w-[420px]">
         <thead><tr class="font-mono text-[9px] uppercase tracking-[.15em] text-navy/40 border-b border-navy/15 text-left">
-          <th class="py-1.5">ID</th><th class="py-1.5">Magaca</th><th class="py-1.5 text-center">Mark</th><th class="py-1.5 text-center">Grade</th>
+          <th class="py-1.5">ID</th><th class="py-1.5">Name</th><th class="py-1.5 text-center">Mark</th><th class="py-1.5 text-center">Grade</th>
         </tr></thead><tbody>${rows}</tbody></table></div>
     </details>
     ${actions ? `<div class="flex flex-wrap gap-2 mt-5">${actions}</div>` : ""}
@@ -853,8 +880,8 @@ function watchTeacher(){
     items.sort((a,b) => String(b[1].createdAt).localeCompare(String(a[1].createdAt)));
     $("teacher-list").innerHTML = items.length
       ? items.map(([id,d]) => card(id, d, d.status === "RETURNED"
-          ? btn("Tirtir","delSub('"+id+"')","bg-red-600 hover:bg-red-700 text-white") : "")).join("")
-      : `<p class="text-navy/50 text-sm">Weli waxba ma gudbin.</p>`;
+          ? btn("Delete","delSub('"+id+"')","bg-red-600 hover:bg-red-700 text-white") : "")).join("")
+      : `<p class="text-navy/50 text-sm">Nothing submitted yet.</p>`;
   }));
 }
 let VIEW = "QUEUE";
@@ -878,35 +905,38 @@ function watchAudit(){
     $("audit-list").innerHTML = items.length ? items.map(([id,d]) => {
       let a = "";
       if(ROLE === "HOD" && d.status === "PENDING_HOD")
-        a = btn("Ansixi → Diiwaangelinta","setStatus('"+id+"','PENDING_REG')","bg-navy hover:bg-navy-soft text-white")
-          + btn("Ku celi macalinka","returnSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
+        a = btn("Approve → Registrar","setStatus('"+id+"','PENDING_REG')","bg-navy hover:bg-navy-soft text-white")
+          + btn("Return to teacher","returnSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
       if(ROLE === "REG" && d.status === "PENDING_REG")
-        a = btn("Ansixinta kama dambeysta ah","setStatus('"+id+"','APPROVED')","bg-gold hover:bg-[#b18f1f] text-navy-deep")
-          + btn("Ku celi","returnSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
+        a = btn("Give final approval","setStatus('"+id+"','APPROVED')","bg-gold hover:bg-[#b18f1f] text-navy-deep")
+          + btn("Return","returnSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
       if(ROLE === "REG" && d.status === "APPROVED")
-        a += btn("Ka noqo ansixinta","setStatus('"+id+"','PENDING_REG')","border border-navy/20 hover:bg-navy/5");
+        a += btn("Revert approval","setStatus('"+id+"','PENDING_REG')","border border-navy/20 hover:bg-navy/5");
       if(ROLE === "REG")
-        a += btn("Tirtir diiwaanka","delSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
+        a += btn("Delete record","delSub('"+id+"')","border border-red-200 text-red-600 hover:bg-red-50");
       return card(id, d, a);
-    }).join("") : `<p class="text-navy/50 text-sm">Ma jiro wax lagu tusayo halkan.</p>`;
+    }).join("") : `<p class="text-navy/50 text-sm">Nothing to show here.</p>`;
   }));
 }
 window.setStatus = async (id, s) => {
-  await updateDoc(doc(db, MARKS, id), { status:s, note:"", [s==="APPROVED"?"approvedAt":"reviewedAt"]: new Date().toISOString() });
+  const patch = { status:s, note:"" };
+  if(s === "PENDING_REG"){ patch.reviewedBy = USER; patch.reviewedAt = new Date().toISOString(); }
+  if(s === "APPROVED"){ patch.approvedBy = USER; patch.approvedAt = new Date().toISOString(); }
+  await updateDoc(doc(db, MARKS, id), patch);
 };
 window.returnSub = async id => {
-  const note = prompt("Sababta celinta (macalinku wuu arki doonaa):");
+  const note = prompt("Reason for the return (the teacher will see this):");
   if(note === null) return;
-  await updateDoc(doc(db, MARKS, id), { status:"RETURNED", note });
+  await updateDoc(doc(db, MARKS, id), { status:"RETURNED", note, returnedBy:USER, returnedAt: new Date().toISOString() });
 };
 window.delSub = async id => {
-  if(confirm("Diiwaankan waa la tirtirayaa oo dib looma soo celin karo. Sii wad?"))
+  if(confirm("This record will be permanently deleted and cannot be recovered. Continue?"))
     await deleteDoc(doc(db, MARKS, id));
 };
 
 window.findStudent = async () => {
   const key = scrub($("acct-id").value);
-  if(!key) return msg("acct-msg","Geli ID.");
+  if(!key) return msg("acct-msg","Please enter an ID.");
   const snap = await getDocs(collection(db, MARKS));
   const hits = [];
   snap.forEach(d => {
@@ -915,7 +945,7 @@ window.findStudent = async () => {
     if(me) hits.push({ sid:me.sid, name:me.name, subject:c.subject, mark:me.mark, grade:me.grade, status:c.status });
   });
   const acct = await getDoc(doc(db, STUDENTS, key));
-  msg("acct-msg", (acct.exists() ? "Akoon wuu jiraa. " : "Akoon lama sameyn weli. ") + hits.length + " koorso ayaa diiwaan gashan.", true);
+  msg("acct-msg", (acct.exists() ? "Account exists. " : "No account created yet. ") + hits.length + " course record" + (hits.length===1?"":"s") + " found.", true);
   $("acct-hits").innerHTML = hits.map(h => `<div class="flex flex-wrap gap-2 items-baseline border-b border-navy/5 py-1.5">
       <span class="font-mono text-[11px] text-navy/50">${esc(h.sid)}</span>
       <span class="font-semibold">${esc(h.name)}</span>
@@ -927,14 +957,14 @@ window.findStudent = async () => {
 
 window.resetAccount = async () => {
   const key = scrub($("acct-id").value);
-  if(!key) return msg("acct-msg","Geli ID.");
+  if(!key) return msg("acct-msg","Please enter an ID.");
   try {
     const d = await getDoc(doc(db, STUDENTS, key));
-    if(!d.exists()) return msg("acct-msg","Akoon lama helin ID-gaas.");
-    if(!confirm("Tirtir akoonka " + d.data().name + "?")) return;
+    if(!d.exists()) return msg("acct-msg","No account found for that ID.");
+    if(!confirm("Reset the account for " + d.data().name + "?")) return;
     await deleteDoc(doc(db, STUDENTS, key));
-    msg("acct-msg","La tirtiray. Ardaygu hadda wuu samaysan karaa akoon cusub.", true);
-  } catch(e){ msg("acct-msg","Ma shaqeynin. Isku day mar kale."); }
+    msg("acct-msg","Account reset. The student can now create a new account.", true);
+  } catch(e){ msg("acct-msg","Something went wrong. Please try again."); }
 };
 </script>
 </body>
